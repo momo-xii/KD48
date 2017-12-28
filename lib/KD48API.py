@@ -1,21 +1,12 @@
 # -*- coding:utf-8 -*-
+import os
+import sys
 import json
 import requests
 import time
-import os
 import logging
+import urllib.request as request
 # import numpy as np
-
-# python2 or python3
-import sys
-ver = sys.version_info
-if ver.major == 2:
-    import codecs
-    import urllib as request
-    reload(sys)
-    sys.setdefaultencoding('utf-8')
-else:
-    import urllib.request as request
 
 from utility import *
 
@@ -639,11 +630,7 @@ class KD48API(object):
         except Exception as e:
             pass
 
-        if ver.major == 2:
-            f = codecs.open(os.path.join(downloadDir, 'msgs.txt'), 'w', 'utf8')
-        else:
-            f = open(os.path.join(downloadDir, 'msgs.txt'), 'w', encoding='utf8')
-
+        f = open(os.path.join(downloadDir, 'msgs.txt'), 'w', encoding='utf8')
         res = self.getRoomInfo(token, memberId)
         roomInfo = res['data']
         roomId = roomInfo['roomId']

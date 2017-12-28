@@ -6,19 +6,11 @@ import json
 import math
 from utility import *
 from hashlib import md5
-
-ver = sys.version_info
-if ver.major == 2:
-    from ConfigParser import ConfigParser
-    import urllib as request
-else:
-    from configparser import ConfigParser
-    import urllib.request as request
-
+from configparser import ConfigParser
+import urllib.request as request
 import logging
 
 currdir = '.' #os.path.abspath(os.path.dirname(__file__))
-
 
 class WDS(object):
     def __init__(self):

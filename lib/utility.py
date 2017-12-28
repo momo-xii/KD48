@@ -3,8 +3,6 @@ import time
 from datetime import datetime
 import json
 import re
-import sys
-ver = sys.version_info
 
 def c(t):
     '''已废弃'''
@@ -23,11 +21,7 @@ def filter_emoji(desstr):
         co = re.compile(u'[\U00010000-\U0010ffff]')
     except re.error:
         co = re.compile(u'[\uD800-\uDBFF][\uDC00-\uDFFF]')
-    if ver.major == 2:
-        return co.sub(restr, desstr)
-    else:
-        return co.sub(restr, desstr)
-        # return desstr
+    return co.sub(restr, desstr)
 
 def gbkIgnore(text):
     '''Windows系统cmd窗口输出时，过滤非gbk符号'''
