@@ -106,25 +106,25 @@ class WDS(object):
         data = {'page':page, 'pro_id':pro_id}
         sign = self.getSign(data)
         data['sign'] = sign
+        wdsInfo = []
         try:
             res = self.wdss.request('POST', url, headers=self.getHeader(), data=data)
             j = res.json()
         except Exception as e:
             logging.exception(e)
-            return None
+            return wdsInfo
 
         if j['status'] == '2':
             logging.error(j['message'])
-            return None
+            return wdsInfo
         elif j['status'] == '0':
             # succeed
             pass
         else:
             logging.error('Unknown error.')
-            return None
+            return wdsInfo
         
         orderList = j['data']
-        wdsInfo = []
         for order in reversed(orderList):
             ctime = ISOString2Time(order['pay_time'])
             if self.wdsLastTime < ctime or debug:

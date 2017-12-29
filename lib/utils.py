@@ -21,6 +21,11 @@ def info(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
+def warning(*args, **kwargs):
+    print("=============== WARNING ===============", file=sys.stderr)
+    print(*args, **kwargs, file=sys.stderr)
+
+
 def error(*args, **kwargs):
     print("================ ERROR ================", file=sys.stderr)
     print(*args, **kwargs, file=sys.stderr)
@@ -39,25 +44,26 @@ def match(text, keywords):
             return True
     return False
 
+
 def SendPrivateMsg(qqbot, qq, text):
     msg = SendPrivateMessage(qq=qq, text=text)
     qqbot.send(msg)
 
-def SendPrivateMsgs(qqbot, qqs, text):
-    if qqs:
-        for qq in qqs:
-            msg = SendPrivateMessage(qq=qq, text=text)
-            qqbot.send(msg)
+
+def SendPrivatesMsg(qqbot, qqs, text):
+    for qq in qqs:
+        SendPrivateMsg(qqbot, str(qq), text)
+
 
 def SendGroupMsg(qqbot, group, text):
-    msg = SendGroupMessage(group=group, text=text)
+    msg = SendGroupMessage(group=str(group), text=text)
     qqbot.send(msg)
 
-def SendGroupMsgs(qqbot, groups, text):
-    if groups:
-        for group in groups:
-            msg = SendGroupMessage(group=group, text=text)
-            qqbot.send(msg)
+
+def SendGroupsMsg(qqbot, groups, text):
+    for group in groups:
+        SendGroupMsg(qqbot, group, text)
+
 
 def reply(qqbot, message, text):
     reply_msg = None

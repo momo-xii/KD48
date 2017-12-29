@@ -1,4 +1,5 @@
 # -*- coding:utf-8 -*-
+import os
 import time
 from datetime import datetime
 import json
@@ -37,6 +38,20 @@ def ISOString2Time(s):
 def Time2ISOString(s):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(s)))
 
+def isVaildDate(date):
+    try:
+        datetime.strptime(date, "%Y-%m-%d")
+        return True
+    except:
+        return False
+
+def isVaildTime(date):
+    try:
+        datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
+        return True
+    except:
+        return False
+
 def loadJson(path):
     with open(path, encoding='utf-8') as json_file:
         data = json.load(json_file)
@@ -45,3 +60,6 @@ def loadJson(path):
 def saveJson(data, path):
     with open(path, 'w', encoding='utf-8') as json_file:
         json.dump(data, json_file, indent=4, ensure_ascii=False)
+
+def killProcess(pid):
+    os.popen('taskkill.exe /pid:'+str(pid))
