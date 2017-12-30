@@ -30,10 +30,9 @@ os.environ['NO_PROXY'] = '48.cn'
 class KD48API(object):
     def __init__(self):
         self.s = requests.Session()
-
-        # 代理设置
-        self.proxy = {'https':'https://218.108.107.70:909'}
-        self.useproxy = False
+        self.proxy = {}
+        self.timeout = 5
+        self.token = '0'
 
     def setProxy(self, proxy):
         self.proxy = proxy
@@ -93,6 +92,7 @@ class KD48API(object):
 
         result['content'] = j['content']
         result['token'] = j['content']['token']
+        self.token = j['content']['token']
         result['userId'] = j['content']['userInfo']['userId']
         result['msg'] = '成功获取token'
         logging.info('成功获取token')
@@ -116,12 +116,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取热门房间列表失败！'
@@ -178,12 +174,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取房间信息失败！'
@@ -233,12 +225,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取房间消息失败！'
@@ -282,9 +270,10 @@ class KD48API(object):
                     printText = senderName + '：' + text + '\n'
                 elif extInfo['messageObject'] == 'faipaiText':
                     # 翻牌消息
-                    # TODO: 用userid查询nickname
-                    faipaiUserId = extInfo['faipaiUserId']
-                    # faipaiName = filter_emoji(extInfo['faipaiName'])
+                    # 用userId查询nickName
+                    # faipaiUserId = extInfo['faipaiUserId']
+                    # faipaiUserInfo = self.getUserInfo(self.token, faipaiUserId)
+                    # faipaiName = filter_emoji(faipaiUserInfo['data']['nickName'])
                     faipaiContent = filter_emoji(extInfo['faipaiContent'])
                     text = filter_emoji(extInfo['messageText'])
                     printText += '有聚聚被翻牌啦！' + '\n'
@@ -374,12 +363,8 @@ class KD48API(object):
         result['reviewList'] = {}
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取直播列表失败！'
@@ -481,12 +466,8 @@ class KD48API(object):
         result['liveList'] = {}
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取直播列表失败！'
@@ -573,12 +554,8 @@ class KD48API(object):
         result['data'] = {}
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取直播列表失败！'
@@ -689,12 +666,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '签到失败！'
@@ -724,7 +697,7 @@ class KD48API(object):
         head['Host'] = 'puser.48.cn'
         head['token'] = token
 
-        data = {"needRecommend":False,"needChatInfo":False,"needFriendsNum":False}
+        data = {"needRecommend":True,"needChatInfo":True,"needFriendsNum":True}
 
         result = {}
         result['status'] = 1
@@ -732,12 +705,8 @@ class KD48API(object):
         result['data'] = {}
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取用户信息失败！'
@@ -777,12 +746,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '分享成员直播失败！'
@@ -820,12 +785,8 @@ class KD48API(object):
         result['data'] = {}
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '获取用户微博列表失败！'
@@ -867,12 +828,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            if self.useproxy:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, proxies=self.proxy, timeout=5)
-            else:
-                res = self.s.request('POST', url, data=json.dumps(data),
-                                headers=head, timeout=5)
+            res = self.s.request('POST', url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '点赞微博失败！'
