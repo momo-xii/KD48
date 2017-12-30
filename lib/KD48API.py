@@ -221,7 +221,7 @@ class KD48API(object):
 
         result = {}
         result['status'] = 1
-        result['data'] = {}
+        result['data'] = []
         result['msg'] = ''
 
         try:
@@ -271,15 +271,24 @@ class KD48API(object):
                 elif extInfo['messageObject'] == 'faipaiText':
                     # 翻牌消息
                     # 用userId查询nickName
-                    # faipaiUserId = extInfo['faipaiUserId']
-                    # faipaiUserInfo = self.getUserInfo(self.token, faipaiUserId)
-                    # faipaiName = filter_emoji(faipaiUserInfo['data']['nickName'])
                     faipaiContent = filter_emoji(extInfo['faipaiContent'])
+                    faipaiNameAppear = True
+                    if faipaiNameAppear:
+                        faipaiUserId = extInfo['faipaiUserId']
+                        faipaiUserInfo = self.getUserInfo(self.token, faipaiUserId)
+                        if faipaiUserInfo['status'] == 1:
+                            faipaiName = filter_emoji(faipaiUserInfo['data']['nickName'])
+                        else:
+                            faipaiName = '某聚聚'
+                            printText += '获取用户名失败\n'
+                        printText += '聚聚“%s”被翻牌啦！'%(faipaiName) + '\n'
+                        printText += '%s：'%(faipaiName) + faipaiContent + '\n'
+                    else:
+                        printText += '有聚聚被翻牌啦！' + '\n'
+                        printText += '聚聚：' + faipaiContent + '\n'
                     text = filter_emoji(extInfo['messageText'])
-                    printText += '有聚聚被翻牌啦！' + '\n'
-                    printText += '聚聚：' + faipaiContent + '\n'
                     printText += senderName + '的回复：' + text + '\n'
-                elif extInfo['messageObject'] == 'live' or extInfo['messageObject'] == 'diantai':
+                elif extInfo['messageObject'] in ['live', 'diantai']:
                     # 直播消息
                     ignore = True
                     text = filter_emoji(extInfo['referenceContent'])
@@ -359,8 +368,8 @@ class KD48API(object):
         result = {}
         result['status'] = 1
         result['msg'] = ''
-        result['liveList'] = {}
-        result['reviewList'] = {}
+        result['liveList'] = []
+        result['reviewList'] = []
 
         try:
             res = self.s.request('POST', url, data=json.dumps(data),
@@ -381,9 +390,9 @@ class KD48API(object):
             return result
 
         result['liveList'] = j['content']['liveList'] \
-            if 'liveList' in j['content'] else {}
+            if 'liveList' in j['content'] else []
         result['reviewList'] = j['content']['reviewList'] \
-            if 'reviewList' in j['content'] else {}
+            if 'reviewList' in j['content'] else []
         result['status'] = 1
         result['msg'] = '成功获取直播列表'
         return result
@@ -851,12 +860,24 @@ class KD48API(object):
 
 
 if __name__ == "__main__":
+    account = loadJson('./config/account.json')
     api = KD48API()
-    res = api.login('xxx','xxx')
+    res = api.login(account['id'], account['password'])
     token = res['token']
 
-    # res = api.getHotRooms(token, page=1, groupId=0, needRootRoom=False)
-    # hotRooms = res['data']
+    # liveList = api.getLiveList(token)
+    # print(liveList)
+
+    # msgs = api.getRoomMsgs(token, roomId=5780791, lastTime=0, limit=10)
+    # for m in reversed(msgs['data']):
+    #     msg = api.analyzeMsg(m)
+    #     print(gbkIgnore(msg['printText']))
+
+    # res1 = api.getUserInfo(token, 398534)
+    # print(res1)
+    res = api.getHotRooms(token, page=1, groupId=0)
+    hotRooms = res['data']
+    print(gbkIgnore(str(hotRooms)))
 
     # memberId = 35
     # res = api.getRoomInfo(token, memberId)
@@ -868,6 +889,6 @@ if __name__ == "__main__":
 
     # print(c(msgs))
 
-    res = api.getOpenLiveList(token)
-    liveList = res['liveList']
-    reviewList = res['reviewList']
+    # res = api.getOpenLiveList(token)
+    # liveList = res['liveList']
+    # reviewList = res['reviewList']

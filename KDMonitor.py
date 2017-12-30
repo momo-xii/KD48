@@ -249,23 +249,22 @@ class KD48Monitor(object):
 
     def roomMonitor(self):
         try:
-            messages = {}
+            messages = []
             response = self.api.getRoomMsgs(self.token, self.roomId)
             if response['status'] != -1:
                 messages = response['data']
 
             for msg in reversed(messages):
+                if msg['msgTime'] <= self.msgLastTime:
+                    continue
                 msgInfo = self.api.analyzeMsg(msg)
                 if msgInfo['ignore']:
-                    continue
-                if msgInfo['msgTime'] <= self.msgLastTime:
                     continue
                 # 其他成员发消息
                 if msgInfo['senderId'] != self.memberId and msgInfo['senderId'] > 0:
                     # 半小时内只播报一次 TODO: 对不同成员分别计时
                     if time.time()-self.lastOtherMemberTime > 1800: 
                         self.lastOtherMemberTime = time.time()
-                        senderName
                         # log = '%s在%s口袋房间出现了！'%(
                         #     msgInfo['senderName'], self.memberName)
                         log = '其他成员在%s口袋房间出现了！快去看看是谁！'%(self.memberName)
@@ -332,8 +331,8 @@ class KD48Monitor(object):
 
     def liveMonitor(self):
         try:
-            liveList = {}
-            reviewList = {}
+            liveList = []
+            reviewList = []
             response = self.api.getLiveList(self.token, memberId=self.memberId)
             if response['status'] != -1:
                 liveList = response['liveList']
