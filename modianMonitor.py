@@ -369,6 +369,8 @@ def ReplyHandler(msg):
 # 处理群消息
 @qqbot.listener((RcvdGroupMessage,))
 def ReplyGroupMsg(message):
+    if message.text.strip() == "":
+        return
     global groupCmdAuthority
     global group_admins
     currQQLevel = 100
@@ -378,6 +380,8 @@ def ReplyGroupMsg(message):
             currQQLevel = 1
         else:
             currQQLevel = 2
+        if 'all' in group_admins[message.group]:
+            currQQLevel = 1
     if message.text in groupCmdAuthority:
         level = groupCmdAuthority[message.text]['level']
         lastTimeDict = groupCmdAuthority[message.text]['lastTime']
@@ -399,6 +403,8 @@ def ReplyGroupMsg(message):
 # 处理私聊消息
 @qqbot.listener((RcvdPrivateMessage,))
 def ReplyRrivateMsg(message):
+    if message.text.strip() == "":
+        return
     global private_admins
     result = ''
     if message.qq in private_admins:

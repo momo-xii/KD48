@@ -282,11 +282,13 @@ class KD48API(object):
                     printText = senderName + '：' + text + '\n'
                 elif extInfo['messageObject'] == 'faipaiText':
                     # 翻牌消息
-                    faipaiName = filter_emoji(extInfo['faipaiName'])
+                    # TODO: 用userid查询nickname
+                    faipaiUserId = extInfo['faipaiUserId']
+                    # faipaiName = filter_emoji(extInfo['faipaiName'])
                     faipaiContent = filter_emoji(extInfo['faipaiContent'])
                     text = filter_emoji(extInfo['messageText'])
-                    printText += '聚聚\"' + faipaiName + '\"被翻牌啦！' + '\n'
-                    printText += faipaiName + '：' + faipaiContent + '\n'
+                    printText += '有聚聚被翻牌啦！' + '\n'
+                    printText += '聚聚：' + faipaiContent + '\n'
                     printText += senderName + '的回复：' + text + '\n'
                 elif extInfo['messageObject'] == 'live' or extInfo['messageObject'] == 'diantai':
                     # 直播消息
