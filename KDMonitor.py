@@ -50,17 +50,22 @@ class KD48Monitor(object):
         # 登录信息
         self.account = accountInfo['userId']
         self.password = accountInfo['password']
-        self.token = accountInfo['token']
+        self.token = '0'
+
+        # debugQQ: 接收错误信息
         self.debugQQ = accountInfo['debugQQ']
 
         # 接收消息QQ设置
+        # QQGroups_pro: 转发所有消息
+        # QQGroups_lite: 只提示房间出现，不转发消息（TODO：自己可以设置转发哪些内容）
+        # QQIds: 私聊转发所有消息
         self.QQIds = monitorInfo['QQIds']
-        self.QQgroupIds = monitorInfo['QQgroupIds']
-        if 'QQgroupIds_S' in list(monitorInfo.keys()):
-            self.QQgroupIds_S = monitorInfo['QQgroupIds_S']
+        self.QQGroups_pro = monitorInfo['QQGroups_pro']
+        if 'QQGroups_lite' in list(monitorInfo.keys()):
+            self.QQGroups_lite = monitorInfo['QQGroups_lite']
         else:
-            self.QQgroupIds_S = []
-        self.QQGroupsAll = list(set(self.QQgroupIds).union(set(self.QQgroupIds_S)))
+            self.QQGroups_lite = []
+        self.QQGroups_all = list(set(self.QQGroups_pro).union(set(self.QQGroups_lite)))
 
         # 被监控成员的信息
         self.memberId = monitorInfo['memberId']
@@ -68,11 +73,14 @@ class KD48Monitor(object):
         self.roomId = None
         self.groupId = 0
         self.roomInfo = {}
-
         self.roomInfoOld = {}
         self.beginHot = 0
 
-        # for room msg alert
+        # CoolQ
+        self.CoolQRoot = monitorInfo['CoolQRoot']
+        # self.CoolQImageDir = os.path.join(self.CoolQRoot, 'data', 'image')
+
+        # room msg alert
         self.isappeared = False
         self.timegap = 1800 #second
         self.lastPrintTime = time.time()
@@ -257,7 +265,7 @@ class KD48Monitor(object):
             for msg in reversed(messages):
                 if msg['msgTime'] <= self.msgLastTime:
                     continue
-                msgInfo = self.api.analyzeMsg(msg)
+                msgInfo = self.api.analyzeMsg(msg, self.CoolQRoot)
                 if msgInfo['ignore']:
                     continue
                 # 其他成员发消息
@@ -269,10 +277,10 @@ class KD48Monitor(object):
                         #     msgInfo['senderName'], self.memberName)
                         log = '其他成员在%s口袋房间出现了！快去看看是谁！'%(self.memberName)
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                        utils.SendGroupsMsg(qqbot, self.QQGroupsAll, log.strip())
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
                     log = msgInfo['printText'].strip() + '\n来自%s口袋房间'%(self.memberName)
                     utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                    utils.SendGroupsMsg(qqbot, self.QQgroupIds, log.strip())
+                    utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log.strip())
                     # self.msgLastTime = msgInfo['msgTime']
                 else:  # 房间拥有者发消息
                     # 通知判定，半小时为临界点
@@ -283,21 +291,21 @@ class KD48Monitor(object):
                         log = (self.memberName + '在口袋房间出现了！大家快去调戏互动啦！' 
                             '（具体消息暂停搬运，请大家移步口袋房间）')
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log)
-                        utils.SendGroupsMsg(qqbot, self.QQGroupsAll, log)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_all, log)
                         self.beginHot = self.getRoomHot()
                         time.sleep(1)
                     elif time.time() - self.msgLastTime / 1000.0 > 600:
                         log = self.memberName + '又在房间出现啦！'
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log)
-                        # utils.SendGroupsMsg(qqbot, self.QQGroupsAll, log)
+                        # utils.SendGroupsMsg(qqbot, self.QQGroups_all, log)
                         self.msgLastTime = msgInfo['msgTime']
                         time.sleep(1)
                     # 转发消息
                     log = msgInfo['printText']
                     utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                    utils.SendGroupsMsg(qqbot, self.QQgroupIds, log.strip())
+                    utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log.strip())
                     if msgInfo['messageObject'] == 'faipaiText':
-                        utils.SendGroupsMsg(qqbot, self.QQgroupIds_S, log.strip())
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log.strip())
                     self.msgCounter.counter(msgInfo)
                     self.lastPrintTime = time.time()
                     # 下载非文字消息
@@ -321,7 +329,7 @@ class KD48Monitor(object):
                 deltaHot = self.getRoomHot() - self.beginHot
                 log += "\n房间热度增加了：%d"%deltaHot
                 utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                utils.SendGroupsMsg(qqbot, self.QQGroupsAll, log.strip())
+                utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
         except Exception as e:
             SendDebugMsgs(self.debugQQ, '房间消息解析错误！')
             logging.exception(e)
@@ -346,7 +354,7 @@ class KD48Monitor(object):
                         log = live['title'] + "开始直播了！\n"
                         log += liveInfo['printText']
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                        utils.SendGroupsMsg(qqbot, self.QQGroupsAll, log.strip())
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
                         
                         secret = "直播封面图：" + liveInfo['picPath'] + "\n"
                         secret += "弹幕文件：" + liveInfo['lrcPath'] + "\n"
@@ -366,7 +374,7 @@ class KD48Monitor(object):
                         log = review['title'] + "的最新直播回放已出！\n"
                         log += liveInfo['printText']
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                        utils.SendGroupsMsg(qqbot, self.QQGroupsAll, log.strip())
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
         except Exception as e:
             SendDebugMsgs(self.debugQQ, '直播消息解析错误！')
             logging.exception(e)
@@ -393,16 +401,15 @@ class KD48Monitor(object):
         self.scheduler.start()
 
         PrintLog('所有监控器启动完毕')
-            
 
-############ 自动回复消息设置 #############
+
+##### 群管理设置 #####
 from config import KD_admins
 group_admins = KD_admins.admins['Group']
 private_admins = KD_admins.admins['Private']
 QQGroups = KD_admins.QQGroups
-adminQQ = KD_admins.adminQQ
 QQGroups_lite = KD_admins.QQGroups_lite
-memberName = KD_admins.memberName
+adminQQ = KD_admins.adminQQ
 welcomeGroups = KD_admins.welcomeGroups
 
 # 每个group分别有个lasttime
@@ -415,6 +422,8 @@ groupCmdAuthority = {"房间信息": {'level': 1, 'lastTime': {}},
                      "房间消息回放": {'level': 1, 'lastTime': {}},
                     }
 
+
+############ 自动回复消息设置 #############
 def ReplyHandler(msg):
     global groupCmdAuthority
     result = ''
@@ -562,7 +571,7 @@ def GroupMemberQuit(message):
 try:
     qqbot.start()
     [accountInfo, monitorInfo] = loadJson('./config/monitor.json')
-    monitor = KD48Monitor(accountInfo, monitorInfo[0])
+    monitor = KD48Monitor(accountInfo, monitorInfo)
     monitor.initial()
     monitor.run()
 except Exception as e:

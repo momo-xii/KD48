@@ -9,6 +9,7 @@ import urllib.request as request
 # import numpy as np
 
 from utility import *
+from cqsdk import CQImage
 
 # disable system proxy
 os.environ['NO_PROXY'] = '48.cn'
@@ -249,18 +250,24 @@ class KD48API(object):
         return result
 
 
-    def analyzeMsg(self, message):
+    def analyzeMsg(self, msg, CoolQRoot=''):
         '''
         分析并提取房间消息
         '''
-        m = message
         ignore = False
+        msgInfo = msg
         try:
-            extInfo = json.loads(m['extInfo'])
+            extInfo = json.loads(msg['extInfo'])
             senderName = extInfo['senderName'] if 'senderName' in extInfo else ' '
-            msgType = m['msgType']
+            msgInfo['senderName'] = senderName
+            msgType = msg['msgType']
             printText = ''
             bodys = ''
+            try:
+                bodys = json.loads(msg['bodys'])
+            except Exception as e:
+                pass
+            msgInfo['bodys'] = bodys
 
             if msgType == 0:
                 # 文字消息
@@ -301,15 +308,20 @@ class KD48API(object):
                     printText = '未知类型文本消息：%s\n'%extInfo['messageObject']
             elif msgType == 1:
                 # 图片消息
-                bodys = json.loads(m['bodys'])
-                url = bodys['url']
-                ext = bodys['ext']
                 printText += senderName + '发了一张图片\n'
-                printText += '图片地址：' + url + '\n'
-                printText += '图片格式：' + ext + '\n'
+                if CoolQRoot.strip() == '':
+                    imgDLInfo = {}
+                else:
+                    CoolQImageDir = os.path.join(CoolQRoot, 'data', 'image')
+                    imgDLInfo = self.downloadMsg(msgInfo, downloadDir=CoolQImageDir)
+                if imgDLInfo:
+                    CQImgText = '{img}\n'.format(img=CQImage(imgDLInfo['CoolQName']))
+                    printText += CQImgText
+                else:
+                    printText += '图片地址：' + bodys['url'] + '\n'
+                    printText += '图片格式：' + bodys['ext'] + '\n'
             elif msgType == 2:
                 # 语音消息
-                bodys = json.loads(m['bodys'])
                 url = bodys['url']
                 ext = bodys['ext']
                 printText += senderName + '发了一条语音\n'
@@ -317,7 +329,6 @@ class KD48API(object):
                 printText += '语音格式：' + ext + '\n'
             elif msgType == 3:
                 # 视频消息
-                bodys = json.loads(m['bodys'])
                 url = bodys['url']
                 ext = bodys['ext']
                 printText += senderName + '发了一段视频\n'
@@ -325,22 +336,19 @@ class KD48API(object):
                 printText += '视频格式：' + ext + '\n'
             else:
                 printText = '未知格式消息：%d\n'%msgType
-            printText += m['msgTimeStr']
+            printText += msg['msgTimeStr']
         except Exception as e:
             printText = '房间消息解析错误！'
             logging.error(printText)
             logging.exception(e)
 
-        msgInfo = {}
         msgInfo['messageObject'] = extInfo['messageObject'] if 'messageObject' in extInfo else ''
         msgInfo['ignore'] = ignore
-        msgInfo['bodys'] = bodys
         msgInfo['printText'] = printText
-        msgInfo['msgId'] = m['msgidClient'] if 'msgidClient' in m else None
-        msgInfo['senderName'] = senderName
+        msgInfo['msgId'] = msg['msgidClient'] if 'msgidClient' in msg else None
         msgInfo['senderAvatar'] = extInfo['senderAvatar'] if 'senderAvatar' in extInfo else None
-        msgInfo['msgTime'] = m['msgTime'] if 'msgTime' in m else 0
-        msgInfo['msgTimeStr'] = m['msgTimeStr'] if 'msgTime' in m else None
+        msgInfo['msgTime'] = msg['msgTime'] if 'msgTime' in msg else 0
+        msgInfo['msgTimeStr'] = msg['msgTimeStr'] if 'msgTime' in msg else None
         msgInfo['msgType'] = msgType
         msgInfo['senderId'] = int(extInfo['senderId']) if 'senderId' in extInfo else -1
         
@@ -590,23 +598,30 @@ class KD48API(object):
         '''
         下载非文字类消息
         '''
+        downloadDir = os.path.join(downloadDir, msgInfo['senderName'])
         try:
             os.mkdir(downloadDir)
         except Exception as e:
             pass
 
+        result = {}
         if msgInfo['msgType'] == 0:
             pass
         else:
             url = msgInfo['bodys']['url']
             ext = msgInfo['bodys']['ext']
-            fn = os.path.join(downloadDir, msgInfo['msgTimeStr'] + '.' + ext)
-            fn = fn.replace(':','-')
+            fn = os.path.join(downloadDir, msgInfo['msgTimeStr'].replace(':','-') + '.' + ext)
+            result['path'] = fn
+            result['CoolQName'] = os.path.join(msgInfo['senderName'], os.path.basename(fn))
             try:
                 request.urlretrieve(url, filename=fn)
             except Exception as e:
-                return -1
-            return 1
+                text = '下载失败！'
+                logging.error(text)
+                logging.exception(e)
+                return {}
+            result['status'] = 1
+            return result
 
 
     def getAllMsgs(self, token, memberId, download=True, downloadDir='msgs', printMsg=False):
