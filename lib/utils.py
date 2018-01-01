@@ -10,6 +10,7 @@ from cqsdk import RE_CQ_SPECIAL, \
     RcvdPrivateMessage, RcvdGroupMessage, RcvdDiscussMessage, \
     SendPrivateMessage, SendGroupMessage, SendDiscussMessage, \
     GroupMemberDecrease, GroupMemberIncrease
+from utility import filter_emoji
 
 
 CQ_ROOT = r'C:/Users/Administrator/Desktop/CQP'
@@ -46,6 +47,7 @@ def match(text, keywords):
 
 
 def SendPrivateMsg(qqbot, qq, text):
+    text = filter_emoji(text)
     msg = SendPrivateMessage(qq=qq, text=text)
     qqbot.send(msg)
 
@@ -56,6 +58,7 @@ def SendPrivatesMsg(qqbot, qqs, text):
 
 
 def SendGroupMsg(qqbot, group, text):
+    text = filter_emoji(text)
     msg = SendGroupMessage(group=str(group), text=text)
     qqbot.send(msg)
 

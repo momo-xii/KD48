@@ -21,7 +21,7 @@ from KD48API import KD48API
 from longQQMsg import LongQQMsg
 from MsgCounter import MsgCounter
 
-from cqsdk import CQBot, CQAt, RcvdPrivateMessage, RcvdGroupMessage, \
+from cqsdk import CQBot, CQAt, CQRecord, RcvdPrivateMessage, RcvdGroupMessage, \
     GroupMemberIncrease, GroupMemberDecrease
 import utils
 from weiboAPI import Weibo
@@ -38,6 +38,18 @@ def SendDebugMsgs(debugQQ, t):
     PrintLog(t)
     if debugQQ:
         utils.SendPrivateMsg(qqbot, str(debugQQ), t)
+
+def SendRecordMsg(t, QQGroups=[], QQIds=[]):
+    '''语音消息：将文字和语音CQ码分开发送
+    '''
+    co = CQRecord.PATTERN
+    text = co.sub('', t)
+    if QQGroups:
+        utils.SendGroupsMsg(qqbot, QQGroups, text)
+        utils.SendGroupsMsg(qqbot, QQGroups, t)
+    if QQIds:
+        utils.SendPrivatesMsg(qqbot, QQIds, text)
+        utils.SendPrivatesMsg(qqbot, QQIds, t)
 
 def PrintLog(text):
     currTimeStr = Time2ISOString(time.time())
@@ -66,6 +78,7 @@ class KD48Monitor(object):
         else:
             self.QQGroups_lite = []
         self.QQGroups_all = list(set(self.QQGroups_pro).union(set(self.QQGroups_lite)))
+        self.sendToLite = monitorInfo['sendToLite']
 
         # 被监控成员的信息
         self.memberId = monitorInfo['memberId']
@@ -104,9 +117,9 @@ class KD48Monitor(object):
         info = ''
         if self.roomInfo:
             info += self.roomInfo['memberName'] + '的房间：' + '\n'
-            info += '房间名称：' + filter_emoji(self.roomInfo['roomName']) + '\n'
-            info += '房间话题：' + filter_emoji(self.roomInfo['topic']) + '\n'
-            info += '房间心情：' + filter_emoji(self.roomInfo['moodName']) + '\n'
+            info += '房间名称：' + self.roomInfo['roomName'] + '\n'
+            info += '房间话题：' + self.roomInfo['topic'] + '\n'
+            info += '房间心情：' + self.roomInfo['moodName'] + '\n'
             info += '房间热度：' + str(currHot) + '\n'
             # info += '最后发言时间：' + self.roomInfo['lastCommentTime'] + '\n'
             info += '房间头像：' + self.roomInfo['roomAvatar'] + '\n'
@@ -279,8 +292,12 @@ class KD48Monitor(object):
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
                         utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
                     log = msgInfo['printText'].strip() + '\n来自%s口袋房间'%(self.memberName)
-                    utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                    utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log.strip())
+                    if msgInfo['msgType'] == 2:
+                        # 语音消息特殊处理
+                        SendRecordMsg(log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
+                    else:
+                        utils.SendPrivatesMsg(qqbot, self.QQIds, log)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log)
                     # self.msgLastTime = msgInfo['msgTime']
                 else:  # 房间拥有者发消息
                     # 通知判定，半小时为临界点
@@ -300,12 +317,36 @@ class KD48Monitor(object):
                         # utils.SendGroupsMsg(qqbot, self.QQGroups_all, log)
                         self.msgLastTime = msgInfo['msgTime']
                         time.sleep(1)
-                    # 转发消息
-                    log = msgInfo['printText']
-                    utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                    utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log.strip())
-                    if msgInfo['messageObject'] == 'faipaiText':
-                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log.strip())
+
+                    ##### 转发消息 #####
+                    log = msgInfo['printText'].strip()
+                    ##### pro版本：全部转发 #####
+                    if msgInfo['msgType'] == 2:
+                        # 语音消息特殊处理
+                        SendRecordMsg(log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
+                    else:
+                        utils.SendPrivatesMsg(qqbot, self.QQIds, log)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log)
+
+                    ##### lite版本：根据自定义转发 #####
+                    if msgInfo['msgType'] == 0 and self.sendToLite['text']:
+                        # 文字消息
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
+                    if msgInfo['messageObject'] == 'faipaiText' and self.sendToLite['fanpai'] \
+                        and not self.sendToLite['text']:
+                        # 翻牌消息
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
+                    if msgInfo['msgType'] == 1 and self.sendToLite['image']:
+                        # 图片消息
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
+                    if msgInfo['msgType'] == 2 and self.sendToLite['audio']:
+                        # 语音消息
+                        SendRecordMsg(log, QQGroups=self.QQGroups_lite)
+                        # utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
+                    if msgInfo['msgType'] == 3 and self.sendToLite['video']:
+                        # 视频消息
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
+
                     self.msgCounter.counter(msgInfo)
                     self.lastPrintTime = time.time()
                     # 下载非文字消息

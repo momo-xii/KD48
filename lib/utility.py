@@ -24,8 +24,17 @@ def filter_emoji(desstr):
         co = re.compile(u'[\uD800-\uDBFF][\uDC00-\uDFFF]')
     return co.sub(restr, desstr)
 
+def CQfilter(string):
+    '''CQ码字符转义，见https://d.cqp.me/Pro/CQ%E7%A0%81
+    '''
+    string = string.replace('&', '&amp;')
+    string = string.replace('[', '&#91;')
+    string = string.replace(']', '&#93;')
+    string = string.replace(',', '&#44;')
+    return string
+
 def gbkIgnore(text):
-    '''Windows系统cmd窗口输出时，过滤非gbk符号'''
+    '''过滤非gbk符号，用于：Windows系统cmd窗口输出，CoolQ路径不支持非gbk字符'''
     return text.encode('gbk','ignore').decode('gbk','ignore')
 
 def ISOString2Time(s):

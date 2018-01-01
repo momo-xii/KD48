@@ -9,6 +9,7 @@ import time
 import traceback
 from base64 import b64encode, b64decode
 from collections import namedtuple
+from utility import CQfilter
 
 
 ClientHello = namedtuple("ClientHello", ("port"))
@@ -66,7 +67,17 @@ class CQImage:
         self.file = file
 
     def __str__(self):
-        return "[CQ:image,file={}]".format(self.file)
+        return "[CQ:image,file={}]".format(CQfilter(self.file))
+
+
+class CQRecord:
+    PATTERN = re.compile(r'\[CQ:record,file=(.+?)\]')
+
+    def __init__(self, file):
+        self.file = file
+
+    def __str__(self):
+        return "[CQ:record,file={}]".format(CQfilter(self.file))
 
 
 def load_frame(data):

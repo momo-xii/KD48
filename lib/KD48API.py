@@ -9,7 +9,7 @@ import urllib.request as request
 # import numpy as np
 
 from utility import *
-from cqsdk import CQImage
+from cqsdk import CQImage, CQRecord
 
 # disable system proxy
 os.environ['NO_PROXY'] = '48.cn'
@@ -273,18 +273,18 @@ class KD48API(object):
                 # 文字消息
                 if extInfo['messageObject'] == 'text':
                     # 普通消息
-                    text = filter_emoji(extInfo['text'])
+                    text = extInfo['text']
                     printText = senderName + '：' + text + '\n'
                 elif extInfo['messageObject'] == 'faipaiText':
                     # 翻牌消息
                     # 用userId查询nickName
-                    faipaiContent = filter_emoji(extInfo['faipaiContent'])
-                    faipaiNameAppear = True
+                    faipaiContent = extInfo['faipaiContent']
+                    faipaiNameAppear = True # 被翻牌聚聚名字是否出现
                     if faipaiNameAppear:
                         faipaiUserId = extInfo['faipaiUserId']
                         faipaiUserInfo = self.getUserInfo(self.token, faipaiUserId)
                         if faipaiUserInfo['status'] == 1:
-                            faipaiName = filter_emoji(faipaiUserInfo['data']['nickName'])
+                            faipaiName = faipaiUserInfo['data']['nickName']
                         else:
                             faipaiName = '某聚聚'
                             printText += '获取用户名失败\n'
@@ -293,15 +293,15 @@ class KD48API(object):
                     else:
                         printText += '有聚聚被翻牌啦！' + '\n'
                         printText += '聚聚：' + faipaiContent + '\n'
-                    text = filter_emoji(extInfo['messageText'])
+                    text = extInfo['messageText']
                     printText += senderName + '的回复：' + text + '\n'
                 elif extInfo['messageObject'] in ['live', 'diantai']:
                     # 直播消息
                     ignore = True
-                    text = filter_emoji(extInfo['referenceContent'])
+                    text = extInfo['referenceContent']
                     printText += '直播消息：\n'
                     printText += text + '\n'
-                    printText += '来自' + filter_emoji(extInfo['referenceTitle']) + '\n'
+                    printText += '来自' + extInfo['referenceTitle'] + '\n'
                 elif extInfo['messageObject'] == 'deleteMessage':
                     ignore = True
                 else:
@@ -315,25 +315,30 @@ class KD48API(object):
                     CoolQImageDir = os.path.join(CoolQRoot, 'data', 'image')
                     imgDLInfo = self.downloadMsg(msgInfo, downloadDir=CoolQImageDir)
                 if imgDLInfo:
-                    CQImgText = '{img}\n'.format(img=CQImage(imgDLInfo['CoolQName']))
+                    CQImgText = '{cq}\n'.format(cq=CQImage(imgDLInfo['CoolQName']))
                     printText += CQImgText
                 else:
                     printText += '图片地址：' + bodys['url'] + '\n'
                     printText += '图片格式：' + bodys['ext'] + '\n'
             elif msgType == 2:
                 # 语音消息
-                url = bodys['url']
-                ext = bodys['ext']
                 printText += senderName + '发了一条语音\n'
-                printText += '语音地址：' + url + '\n'
-                printText += '语音格式：' + ext + '\n'
+                if CoolQRoot.strip() == '':
+                    recordDLInfo = {}
+                else:
+                    CoolQRecordDir = os.path.join(CoolQRoot, 'data', 'record')
+                    recordDLInfo = self.downloadMsg(msgInfo, downloadDir=CoolQRecordDir)
+                if recordDLInfo:
+                    CQRecordText = '{cq}\n'.format(cq=CQRecord(recordDLInfo['CoolQName']))
+                    printText += CQRecordText
+                else:
+                    printText += '语音地址：' + bodys['url'] + '\n'
+                    printText += '语音格式：' + bodys['ext'] + '\n'
             elif msgType == 3:
                 # 视频消息
-                url = bodys['url']
-                ext = bodys['ext']
                 printText += senderName + '发了一段视频\n'
-                printText += '视频地址：' + url + '\n'
-                printText += '视频格式：' + ext + '\n'
+                printText += '视频地址：' + bodys['url'] + '\n'
+                printText += '视频格式：' + bodys['ext'] + '\n'
             else:
                 printText = '未知格式消息：%d\n'%msgType
             printText += msg['msgTimeStr']
@@ -415,8 +420,8 @@ class KD48API(object):
         liveUrlhead = 'https://h5.48.cn/2017appshare/memberLiveShare/index.html?id='
 
         try:
-            title = filter_emoji(live['title']) if 'title' in live else ' '
-            subTitle = filter_emoji(live['subTitle']) if 'subTitle' in live else ' '
+            title = live['title'] if 'title' in live else ' '
+            subTitle = live['subTitle'] if 'subTitle' in live else ' '
             streamPath = live['streamPath']
             liveUrl = liveUrlhead + live['liveId']
             startTime = live['startTime'] if 'startTime' in live else 0
@@ -516,8 +521,8 @@ class KD48API(object):
         liveUrlhead = 'https://h5.48.cn/2017appshare/liveshare/?id='
 
         try:
-            title = filter_emoji(live['title']) if 'title' in live else ' '
-            subTitle = filter_emoji(live['subTitle']) if 'subTitle' in live else ' '
+            title = live['title'] if 'title' in live else ' '
+            subTitle = live['subTitle'] if 'subTitle' in live else ' '
             liveUrl = liveUrlhead + live['liveId']
             startTime = live['startTime'] if 'startTime' in live else 0
             startTimeStr = time.strftime('%Y-%m-%d %H:%M:%S',
@@ -597,10 +602,13 @@ class KD48API(object):
     def downloadMsg(self, msgInfo, downloadDir='msgs'):
         '''
         下载非文字类消息
+        每个成员单独一个文件夹
+        CoolQName用于CoolQ的图片语音发送时的CQ码，CQ码路径不支持非gbk编码
         '''
-        downloadDir = os.path.join(downloadDir, msgInfo['senderName'])
+        senderName = gbkIgnore(msgInfo['senderName'])
+        downloadDir = os.path.join(downloadDir, senderName)
         try:
-            os.mkdir(downloadDir)
+            os.makedirs(downloadDir)
         except Exception as e:
             pass
 
@@ -612,7 +620,7 @@ class KD48API(object):
             ext = msgInfo['bodys']['ext']
             fn = os.path.join(downloadDir, msgInfo['msgTimeStr'].replace(':','-') + '.' + ext)
             result['path'] = fn
-            result['CoolQName'] = os.path.join(msgInfo['senderName'], os.path.basename(fn))
+            result['CoolQName'] = os.path.join(senderName, os.path.basename(fn))
             try:
                 request.urlretrieve(url, filename=fn)
             except Exception as e:
@@ -629,7 +637,7 @@ class KD48API(object):
         获取某成员房间所有消息，并下载非文字类消息
         '''
         try:
-            os.mkdir(downloadDir)
+            os.makedirs(downloadDir)
         except Exception as e:
             pass
 
