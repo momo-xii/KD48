@@ -44,8 +44,12 @@ def ISOString2Time(s):
         d = datetime(*(time.strptime(s, "%Y-%m-%d %H:%M:%S")[0:6]))
     return time.mktime(d.timetuple())
 
+ISOTime2Timestamp = ISOString2Time
+
 def Time2ISOString(s):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(s)))
+
+Timestamp2ISOTime = ISOString2Time
 
 def isVaildDate(date):
     try:

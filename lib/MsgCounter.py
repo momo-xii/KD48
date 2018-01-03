@@ -1,7 +1,8 @@
 # -*- coding:utf-8 -*-
 
 class MsgCounter(object):
-    def __init__(self):
+    def __init__(self, memberId=0):
+        self.memberId = memberId
         self.msgCnt = 0
         self.msgTextCnt = 0
         self.msgImgCnt = 0
@@ -16,6 +17,10 @@ class MsgCounter(object):
         self.msgVideoCnt = 0
 
     def counter(self, msg):
+        if msg['senderId'] != self.memberId:
+            return
+        if msg['ignore']:
+            return
         currType = msg['msgType']
         self.msgCnt += 1
         if currType == 0:

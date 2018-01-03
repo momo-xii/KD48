@@ -97,7 +97,7 @@ class KD48Monitor(object):
         self.isappeared = False
         self.timegap = 1800 #second
         self.lastPrintTime = time.time()
-        self.msgCounter = MsgCounter()
+        self.msgCounter = MsgCounter(self.memberId)
         self.lastOtherMemberTime = 0 #上次在房间出现其他成员的时间
 
 

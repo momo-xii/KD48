@@ -10,6 +10,7 @@ import urllib.request as request
 
 from utility import *
 from cqsdk import CQImage, CQRecord
+from MsgCounter import MsgCounter
 
 # disable system proxy
 os.environ['NO_PROXY'] = '48.cn'
@@ -299,9 +300,8 @@ class KD48API(object):
                     # 直播消息
                     ignore = True
                     text = extInfo['referenceContent']
-                    printText += '直播消息：\n'
-                    printText += text + '\n'
-                    printText += '来自' + extInfo['referenceTitle'] + '\n'
+                    printText += '直播：' + text + '\n'
+                    printText += '来自：' + extInfo['referenceTitle'] + '\n'
                 elif extInfo['messageObject'] == 'deleteMessage':
                     ignore = True
                 else:
@@ -347,6 +347,7 @@ class KD48API(object):
             logging.error(printText)
             logging.exception(e)
 
+        msgInfo['extInfo'] = extInfo
         msgInfo['messageObject'] = extInfo['messageObject'] if 'messageObject' in extInfo else ''
         msgInfo['ignore'] = ignore
         msgInfo['printText'] = printText
@@ -632,7 +633,8 @@ class KD48API(object):
             return result
 
 
-    def getAllMsgs(self, token, memberId, download=True, downloadDir='msgs', printMsg=False):
+    def getAllMsgs(self, token, memberId, download=True, downloadDir='msgs', 
+        printMsg=False, lastTime=0, dateLimit='2017-01-01'):
         '''
         获取某成员房间所有消息，并下载非文字类消息
         '''
@@ -641,45 +643,53 @@ class KD48API(object):
         except Exception as e:
             pass
 
-        f = open(os.path.join(downloadDir, 'msgs.txt'), 'w', encoding='utf8')
+        textFN = 'msgs.txt'
+        f = open(os.path.join(downloadDir, textFN), 'w', encoding='utf8')
         res = self.getRoomInfo(token, memberId)
-        roomInfo = res['data']
-        roomId = roomInfo['roomId']
+        if res['status'] < 0:
+            print(res['msg'])
+            return
+        roomId = res['data']['roomId']
 
-        #res = self.getRoomMsgs(token, roomId)
-        msgs = ['1']#res['data']
-        lastTime = 0#res['lastTime']
-
+        msgs = ['1']
+        lastTime = lastTime
+        msgCounter = MsgCounter(memberId)
+        timeLimit = ISOTime2Timestamp(dateLimit + ' 00:00:00')
         while lastTime >= 0 and msgs:
-            try:
-                res = self.getRoomMsgs(token, roomId, lastTime=lastTime)
-            except Exception as e:
-                print(e)
+            res = self.getRoomMsgs(token, roomId, lastTime=lastTime, limit=100)
             if res['status'] < 0:
-                #msgs = []
                 print(res['msg'])
                 continue
-            else:
-                lastTime = res['lastTime']
-                msgs = res['data']
-            print(lastTime)
+            lastTime = res['lastTime']
+            msgs = res['data']
             for m in msgs:
+                if m['msgTime']/1000 < timeLimit:
+                    break
                 msgInfo = self.analyzeMsg(m)
+                msgCounter.counter(msgInfo)
                 if printMsg:
-                    print(msgInfo['printText']) #####
-                f.write(msgInfo['printText'])
-                f.write('\n')
-                if msgInfo['msgType'] == 0:
-                    pass
-                else:
-                    url = msgInfo['bodys']['url']
-                    ext = msgInfo['bodys']['ext']
-                    fn = os.path.join(downloadDir, msgInfo['msgTimeStr'] + '.' + ext)
-                    fn = fn.replace(':','-')
-                    if download:
-                        request.urlretrieve(url, filename=fn)
-                time.sleep(1)
+                    print(msgInfo['printText']) #cmd窗口不支持输出非gbk字符
+                f.write(msgInfo['printText'].strip())
+                f.write('\n\n')
+                # 统计字数使用，只有发言和翻牌的原始文字
+                # if msgInfo['msgType'] == 0 and not msgInfo['ignore']:
+                #     if 'text' in msgInfo['extInfo']:
+                #         f.write(msgInfo['extInfo']['text'])
+                #         f.write('\n\n')
+                #     elif 'messageText' in msgInfo['extInfo']:
+                #         f.write(msgInfo['extInfo']['messageText'])
+                #         f.write('\n\n')
+                if download:
+                    self.downloadMsg(msgInfo, downloadDir=downloadDir)
+            print(msgCounter.info())
+            print('Next timestamp:', lastTime)
+            if lastTime/1000 < timeLimit:
+                print('已到截止时间：', dateLimit)
+                break
+            time.sleep(2)
         f.close()
+        print('统计完毕，结果为：')
+        print(msgCounter.info())
 
 
     def checkIn(self, token):
