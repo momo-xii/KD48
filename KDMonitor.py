@@ -43,7 +43,7 @@ def SendRecordMsg(t, QQGroups=[], QQIds=[]):
     '''语音消息：将文字和语音CQ码分开发送
     '''
     co = CQRecord.PATTERN
-    text = co.sub('', t)
+    text = co.sub('（语音见下一条）', t)
     if QQGroups:
         utils.SendGroupsMsg(qqbot, QQGroups, text)
         utils.SendGroupsMsg(qqbot, QQGroups, t)
@@ -294,10 +294,14 @@ class KD48Monitor(object):
                         self.lastOtherMemberTime = time.time()
                         # log = '%s在%s口袋房间出现了！'%(
                         #     msgInfo['senderName'], self.memberName)
-                        log = '其他成员在%s口袋房间出现了！快去看看是谁！'%(self.memberName)
-                        utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
-                        utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
+                        log_lite = '其他成员在%s口袋房间出现了！快去看看是谁！'%(self.memberName)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log_lite)
+                        log_pro = '其他成员在%s口袋房间出现了！'%(self.memberName)
+                        utils.SendPrivatesMsg(qqbot, self.QQIds, log_pro)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log_pro)
+
                     log = msgInfo['printText'].strip() + '\n来自%s口袋房间'%(self.memberName)
+                    # 其他成员消息只pro版本转发
                     if msgInfo['msgType'] == 2:
                         # 语音消息特殊处理
                         SendRecordMsg(log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
@@ -308,10 +312,12 @@ class KD48Monitor(object):
                     # 通知判定，半小时为临界点
                     if self.isappeared == False:
                         self.isappeared = True
-                        log = (self.memberName + '在口袋房间出现了！大家快去调戏互动啦！' 
+                        log_lite = (self.memberName + '在口袋房间出现了！大家快去调戏互动啦！' 
                             '（具体消息暂停搬运，请大家移步口袋房间）')
-                        utils.SendPrivatesMsg(qqbot, self.QQIds, log)
-                        utils.SendGroupsMsg(qqbot, self.QQGroups_all, log)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log_lite)
+                        log_pro = (self.memberName + '在口袋房间出现了！大家快去调戏互动啦！')
+                        utils.SendPrivatesMsg(qqbot, self.QQIds, log_pro)
+                        utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log_pro)
                         self.beginHot = self.getRoomHot()
                         time.sleep(1)
 
@@ -339,7 +345,6 @@ class KD48Monitor(object):
                     if msgInfo['msgType'] == 2 and self.sendToLite['audio']:
                         # 语音消息
                         SendRecordMsg(log, QQGroups=self.QQGroups_lite)
-                        # utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
                     if msgInfo['msgType'] == 3 and self.sendToLite['video']:
                         # 视频消息
                         utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
@@ -372,7 +377,7 @@ class KD48Monitor(object):
                 utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
                 utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
         except Exception as e:
-            SendDebugMsgs(self.debugQQ, '房间消息解析错误！')
+            SendDebugMsgs(self.debugQQ, '房间消息解析错误！可能跳过了消息！')
             logging.exception(e)
             # 如果出错，则跳过这几条消息
             self.msgLastTime = messages[0]['msgTime']
