@@ -53,7 +53,7 @@ def SendRecordMsg(t, QQGroups=[], QQIds=[]):
 
 def PrintLog(text):
     currTimeStr = Time2ISOString(time.time())
-    print(currTimeStr, text)
+    print(currTimeStr, gbkIgnore(text))
     logging.info('PrintLog ' + text)
     loggerInfo.info('PrintLog ' + text)
 
@@ -99,6 +99,11 @@ class KD48Monitor(object):
         self.lastPrintTime = time.time()
         self.msgCounter = MsgCounter(self.memberId)
         self.lastOtherMemberTime = 0 #上次在房间出现其他成员的时间
+
+        if 'refreshInterval' in monitorInfo:
+            self.refreshInterval = monitorInfo['refreshInterval']
+        else:
+            self.refreshInterval = 15
 
 
     # 更新房间信息
@@ -148,7 +153,8 @@ class KD48Monitor(object):
                 response += '\n修改了' + monitorDicts[key] + '：' + self.roomInfo[key]
             self.roomInfoOld = self.roomInfo
             saveJson(self.roomInfoOld, 'config/roomInfo.json')
-        return response
+        if response:
+            SendDebugMsgs(self.debugQQ, response)
 
 
     def getRoomHot(self):
@@ -298,11 +304,8 @@ class KD48Monitor(object):
                     else:
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log)
                         utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log)
-                    # self.msgLastTime = msgInfo['msgTime']
-                else:  # 房间拥有者发消息
+                elif msgInfo['senderId'] == self.memberId:  # 房间拥有者发消息
                     # 通知判定，半小时为临界点
-                    # 改进TODO：计算当前消息和上一条消息的时间差来判定，不再记录时间
-                    #           但上一条消息要确保是本房间拥有者发的消息，不能是其他成员
                     if self.isappeared == False:
                         self.isappeared = True
                         log = (self.memberName + '在口袋房间出现了！大家快去调戏互动啦！' 
@@ -310,12 +313,6 @@ class KD48Monitor(object):
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log)
                         utils.SendGroupsMsg(qqbot, self.QQGroups_all, log)
                         self.beginHot = self.getRoomHot()
-                        time.sleep(1)
-                    elif time.time() - self.msgLastTime / 1000.0 > 600:
-                        log = self.memberName + '又在房间出现啦！'
-                        utils.SendPrivatesMsg(qqbot, self.QQIds, log)
-                        # utils.SendGroupsMsg(qqbot, self.QQGroups_all, log)
-                        self.msgLastTime = msgInfo['msgTime']
                         time.sleep(1)
 
                     ##### 转发消息 #####
@@ -358,8 +355,11 @@ class KD48Monitor(object):
                         SendDebugMsgs(self.debugQQ, '多线程下载错误！')
                         logging.exception(e)
                     time.sleep(1)
-            if messages:
-                self.msgLastTime = messages[0]['msgTime'] # msgInfo['msgTime']
+                else:
+                    pass
+                self.msgLastTime = msgInfo['msgTime']
+            # if messages:
+            #     self.msgLastTime = messages[0]['msgTime'] # msgInfo['msgTime']
                     
             # 消息统计
             if time.time() - self.lastPrintTime > self.timegap and self.isappeared == True:
@@ -426,13 +426,13 @@ class KD48Monitor(object):
 
         self.scheduler = BackgroundScheduler()
 
-        self.scheduler.add_job(self.roomMonitor, 'interval', seconds=15, id='roomMonitor',
-            coalesce=True, max_instances=1)
+        self.scheduler.add_job(self.roomMonitor, 'interval', seconds=self.refreshInterval, 
+            id='roomMonitor', coalesce=True, max_instances=1)
 
         time.sleep(5)
 
-        self.scheduler.add_job(self.liveMonitor, 'interval', seconds=15, id='liveMonitor',
-            coalesce=True, max_instances=1)
+        self.scheduler.add_job(self.liveMonitor, 'interval', seconds=self.refreshInterval, 
+            id='liveMonitor', coalesce=True, max_instances=1)
 
         time.sleep(3)
 

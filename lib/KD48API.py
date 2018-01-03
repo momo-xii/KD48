@@ -33,7 +33,7 @@ class KD48API(object):
     def __init__(self):
         self.s = requests.Session()
         self.proxy = {}
-        self.timeout = 5
+        self.timeout = 10
         self.token = '0'
 
     def setProxy(self, proxy):
