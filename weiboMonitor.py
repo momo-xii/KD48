@@ -171,7 +171,7 @@ def checkStory():
                 utils.SendPrivatesMsg(qqbot, adminQQ, log)
 
     elif result['status'] == -2:
-        errorsList = ['未知错误', '校验参数不存在', '系统繁忙']
+        errorsList = ['未知错误', '校验参数不存在', '系统繁忙', 'invalid weibo user!']
         logging.warning('checkStory: ' + result['msg'])
         if result['msg'] in errorsList:
             return
