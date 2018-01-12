@@ -2,6 +2,7 @@
 # 定时检测程序是否还在运行，若没有运行则启动程序
 import sys
 import time
+from datetime import datetime
 import psutil
 import subprocess
 
@@ -25,8 +26,10 @@ if __name__ == "__main__":
         if foundProgram == []:
             print("启动程序：%s"%(CMD))
             subprocess.Popen('start /B %s'%(CMD), shell=True)
+            print(datetime.now())
         else:
             print("程序正在运行：")
             for p in foundProgram:
                 print(p.exe())
+            print(datetime.now())
         time.sleep(sleepTime)
