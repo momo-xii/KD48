@@ -26,6 +26,11 @@ def SendGroupMsgs(QQgroupIds, t):
         for g in QQgroupIds:
             utils.SendGroupMsg(qqbot, str(g), t.strip())
 
+def getNameAndPS(nameAndPS):
+    name = nameAndPS.split()[0]
+    ps = nameAndPS.lstrip(name).strip()
+    return [name, ps]
+
 # 获取当日行程
 def getTodayJob():
     text = ''
@@ -59,13 +64,15 @@ def dailyAlert():
 
 # 行程提醒
 def jobAlert(name, time):
+    [jobName, ps] = getNameAndPS(name)
     text = '【%s行程提醒】即将开始：\n'%(memberName)
-    text += name + '\n'
-    text += '时间：' + str(time)
+    text += jobName + '\n'
+    text += '时间：' + str(time) + '\n'
+    text += '\n' + ps
+    text = text.strip()
     if ':' in time:
         SendGroupMsgs(QQGroups, text)
         SendPrivateMsgs(QQIds, text)
-
 
 def my_listener(event):
     currTimeStr = Time2ISOString(time.time())
@@ -105,9 +112,10 @@ def listAllJobs():
             jobInfo['time'] = str(job.next_run_time).split(' ')[0]
             jobInfo['datetime'] = job.next_run_time
         else:
-            jobInfo['name'] = job.name
+            jobInfo['name'] = getNameAndPS(job.name)[0]
             jobInfo['time'] = str(job.next_run_time + alertDelta).split('+')[0]
             jobInfo['datetime'] = job.next_run_time
+            jobInfo['ps'] = getNameAndPS(job.name)[1]
         jobList.append(jobInfo)
     return jobList
 
@@ -146,10 +154,11 @@ def scheduleHandler(msg):
 
 
         if cmd == "添加行程":
-            if len(cmdList) != 3 and len(cmdList) != 4:
+            if len(cmdList) < 3:
                 return '''命令格式错误：缺少参数
-正确格式：添加行程 行程名称 行程日期 [行程时间]
+正确格式：添加行程 行程名称 行程日期 [行程时间 [备注]]
 示例：
+添加行程 TeamSII公演 2017-09-09 19:00:00 请前往口袋48或B站观看
 添加行程 TeamSII公演 2017-09-09 19:00:00
 添加行程 上海飞北京 2017-09-10
 注意：[行程名称]中不能包含空格'''
@@ -160,6 +169,10 @@ def scheduleHandler(msg):
             else:
                 scheTime = cmdList[2] + ' ' + cmdList[3]
                 isAlert = True
+                ps = ''
+                for s in cmdList[4:]:
+                    ps += s+' '
+                nameAndPS = scheName + ' ' + ps
             if not isVaildDate(scheTime):
                 return "时间格式错误，正确格式为 YYYY-MM-DD [HH:MM:SS]\n示例：\n2017-02-15\n2017-03-22 17:30:00"
             
@@ -169,9 +182,9 @@ def scheduleHandler(msg):
             else:
                 alertTime = datetime.strptime(scheTime, "%Y-%m-%d")
                 alertTime = alertTime + timedelta(hours=23, minutes=59)
-                scheName = '*' + scheName #特殊标记区分
-            scheduler.add_job(jobAlert, 'date', args=(scheName, scheTime),
-                run_date=alertTime, name=scheName, coalesce=True)
+                nameAndPS = '*' + scheName #特殊标记区分
+            scheduler.add_job(jobAlert, 'date', args=(nameAndPS, scheTime),
+                run_date=alertTime, name=nameAndPS, coalesce=True)
             result = "成功添加行程：\n%s\n时间：%s"%(scheName, scheTime)
 
         if cmd == "删除行程":
@@ -205,6 +218,8 @@ def scheduleHandler(msg):
                 for job in jobList:
                     result += '\n' + job['name']
                     result += '\n时间：' + job['time'] + '\n'
+                    if 'ps' in job:
+                        result += job['ps'] + '\n'
                 result = result.strip()
 
         if cmd == "今日行程群播报":
