@@ -218,7 +218,7 @@ def scheduleHandler(msg):
                 for job in jobList:
                     result += '\n' + job['name']
                     result += '\n时间：' + job['time'] + '\n'
-                    if 'ps' in job:
+                    if 'ps' in job and job['ps'] != '':
                         result += job['ps'] + '\n'
                 result = result.strip()
 
