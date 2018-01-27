@@ -2,9 +2,11 @@
 import os
 import sys
 import time
+from datetime import datetime
 import math
 import threading
 import random
+import urllib.request as request
 import logging
 import mylog
 mylog.setLog('weiboMonitor', logging.WARNING)
@@ -140,7 +142,7 @@ elif res['status'] == 0:
     pass
 else:
     log = res['msg']
-    SendDebugMsgs(self.debugQQ, log)
+    SendDebugMsgs(adminQQ[0], log)
     sys.exit()
 
 PrintLog('初始化微博故事成功')
@@ -152,6 +154,7 @@ def checkStory():
     if result['status'] > 0:
         for s in story:
             if storyLastTime < s['create_time']:
+                # 抢沙发
                 try:
                     comment = '沙发'
                     segment_id = s['segment_id']
@@ -161,17 +164,28 @@ def checkStory():
                         print('评论失败：%s'%r['msg'])
                 except Exception as e:
                     pass
-
-                log = '%s 发布微博故事了！大家快去评论点赞啦！（测试版）\n'%(s['nickname'])
+                # 播报
+                log = '%s 发布微博故事了！大家快去微博评论点赞啦！\n'%(s['nickname'])
                 utils.SendGroupsMsg(qqbot, QQGroups_lite, log.strip())
                 storyLastTime = s['create_time']
                 log += "视频地址：" + s['url'] + "\n"
                 log += "视频时长：%.1fs"%(s['duration']/1000)
                 utils.SendGroupsMsg(qqbot, QQGroups, log.strip())
                 utils.SendPrivatesMsg(qqbot, adminQQ, log)
+                # 下载微博故事
+                try:
+                    storyDir = './download/story/'
+                    mkdir(storyDir)
+                    fn = getISODateAndTime().replace(':','') + '.mp4'
+                    request.urlretrieve(s['url'], filename=os.path.join(storyDir, fn))
+                except Exception as e:
+                    text = '下载失败！'
+                    logging.error(text)
+                    logging.exception(e)
 
     elif result['status'] == -2:
-        errorsList = ['未知错误', '校验参数不存在', '系统繁忙', 'invalid weibo user!']
+        errorsList = ['未知错误', '校验参数不存在', '系统繁忙', 'invalid weibo user!', 
+        "API config 'api.main.stories_details' is wrong or invalid!"]
         logging.warning('checkStory: ' + result['msg'])
         if result['msg'] in errorsList:
             return
@@ -221,10 +235,10 @@ def printStoryInfo(weibo_id=''):
 topiclogFN = 'config/superTopic.json'
 topicInfoOld = None
 if not os.path.exists(topiclogFN):
-    topicInfo = weibo.getDataInfo()
+    topicInfo = weibo.getChaohuaStat()
     while not topicInfo:
         time.sleep(3)
-        topicInfo = weibo.getDataInfo()
+        topicInfo = weibo.getChaohuaStat()
     saveJson(topicInfo, topiclogFN)
     topicInfoOld = topicInfo
 else:
@@ -232,39 +246,32 @@ else:
 
 def checkSuperTopic():
     global topicInfoOld
-    topicInfo = weibo.getDataInfo()
+    topicInfo = weibo.getChaohuaStat()
     visitCnt = 0
-    while not topicInfo or topicInfo['state'] == -1:
+    while not topicInfo:
         if visitCnt >= 10:
             return
         visitCnt += 1
         time.sleep(3)
-        topicInfo = weibo.getDataInfo()
-    if topicInfo:
-        if 'errno' in topicInfo and topicInfo['errno'] < 0:
-            # utils.SendPrivatesMsg(qqbot, adminQQ, story['errmsg'])
-            scheduler.remove_job('topic')
-            utils.SendPrivatesMsg(qqbot, adminQQ, 'checkSuperTopic: job topic removed.')
-        else:
-            log = '#%s# 超话数据：（测试版）\n'%(memberName)
-            log += '时间：%s'%topicInfo['date'] + '\n'
-            log += topicInfo['text'] + '\n'
-            log += '粉丝增加了：%d'%(topicInfo['fansCnt'] - topicInfoOld['fansCnt']) + '\n'
-            log += '帖子增加了：%d'%(topicInfo['postCnt'] - topicInfoOld['postCnt'])
-            utils.SendPrivatesMsg(qqbot, adminQQ, log)
-            topicInfoOld = topicInfo
-            saveJson(topicInfoOld, topiclogFN)
+        topicInfo = weibo.getChaohuaStat()
+    log = '#%s# 超话数据：\n'%(memberName)
+    log += '时间：%s'%topicInfo['date'] + '\n'
+    log += topicInfo['text'] + '\n'
+    log += '粉丝增加了：%d'%(topicInfo['fansCnt'] - topicInfoOld['fansCnt']) + '\n'
+    log += '帖子增加了：%d'%(topicInfo['postCnt'] - topicInfoOld['postCnt'])
+    utils.SendPrivatesMsg(qqbot, adminQQ, log)
+    topicInfoOld = topicInfo
+    saveJson(topicInfoOld, topiclogFN)
 
 def getSuperTopicInfo():
-    topicInfo = weibo.getDataInfo()
+    topicInfo = weibo.getChaohuaStat()
     if topicInfo:
-        if 'errno' in topicInfo and topicInfo['errno'] < 0:
-            return '发生错误'
-        else:
-            log = '#%s# 超话数据：（测试版）\n'%(memberName)
-            log += '时间：%s'%topicInfo['date'] + '\n'
-            log += topicInfo['text']
-            return log
+        log = '#%s# 超话数据：\n'%(memberName)
+        log += '时间：%s'%topicInfo['date'] + '\n'
+        log += '阅读：%.2f亿'%(topicInfo['viewCnt']/1e8) + '\n'
+        log += '帖子：%s'%topicInfo['postCnt'] + '\n'
+        log += '粉丝：%s'%topicInfo['fansCnt'] + '\n'
+        return log.strip()
     else:
         return "发生错误"
 

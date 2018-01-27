@@ -1,11 +1,13 @@
 # -*- coding:utf-8 -*-
 import os
+import re
 import requests
 import json
 import logging
 from datetime import datetime
 import urllib.request as request
 import urllib.parse as urlparse
+from html.parser import HTMLParser
 
 from config import weibo_ID
 gsid = weibo_ID.gsid
@@ -17,11 +19,11 @@ containerid = weibo_ID.containerid
 
 class Weibo(object):
     def __init__(self):
-        self.ws = requests.Session()
+        self.ss = requests.Session()
         self.wbLastTime = 0
         self.fansCntLast = 0
         self.postCntLast = 0
-        cntInfo = self.getDataInfo()
+        cntInfo = self.getChaohuaStat()
         if cntInfo:
             if 'errno' in cntInfo and cntInfo['errno'] < 0:
                 pass
@@ -50,7 +52,7 @@ class Weibo(object):
         result['msg'] = ''
 
         try:
-            res = self.ws.request('GET', url)
+            res = self.ss.request('GET', url)
             j = res.json()
         except Exception as e:
             text = '获取微博故事失败！'
@@ -87,7 +89,7 @@ class Weibo(object):
         urlstory = url2 + story_id
 
         try:
-            res = self.ws.request('GET', urlstory)
+            res = self.ss.request('GET', urlstory)
             j = res.json()
         except Exception as e:
             text = '获取微博故事失败！'
@@ -161,7 +163,7 @@ class Weibo(object):
         urlstory = url2 + story_id
 
         try:
-            res = self.ws.request('GET', urlstory)
+            res = self.ss.request('GET', urlstory)
             j = res.json()
         except Exception as e:
             text = '获取微博故事失败！'
@@ -278,7 +280,7 @@ Content-Transfer-Encoding: 8bit
         result['msg'] = ''
 
         try:
-            res = self.ws.request('POST', url, data=data.encode('utf-8'), headers=head)
+            res = self.ss.request('POST', url, data=data.encode('utf-8'), headers=head)
             j = res.json()
         except Exception as e:
             text = '评论微博故事失败！'
@@ -301,6 +303,53 @@ Content-Transfer-Encoding: 8bit
         return result
 
 
+    def getChaohuaStat(self):
+        url = 'https://weibo.com/p/%s/super_index'%(chid)
+        header = {}
+        header['Host'] = 'weibo.com'
+        header['Connection'] = 'keep-alive'
+        header['Cache-Control'] = 'max-age=0'
+        header['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        header['Upgrade-Insecure-Requests'] = '1'
+        header['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.221 Safari/537.36 SE 2.X MetaSr 1.0'
+        header['Accept-Encoding'] = 'gzip, deflate, sdch'
+        header['Accept-Language'] = 'zh-CN,zh;q=0.8'
+        header['Cookie'] = 'YF-Page-G0=8fee13afa53da91ff99fc89cc7829b07; SUB=_2AkMtMAf9f8NxqwJRmPETzW7rao5zzwnEieKbbPYmJRMxHRl-yT9kqhIEtRB6BrApEiUasol6dtZ0SZgScUxE2fBksmIa; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9W52w0SWCbgjrbfA2c.D9Lk0'
+
+        class MyHTMLParser(HTMLParser):
+            def __init__(self):
+                HTMLParser.__init__(self)
+
+            def handle_starttag(self, tag, attrs):   
+                #print "Encountered the beginning of a %s tag" % tag   
+                if tag == "meta":   
+                    if len(attrs) == 0:   
+                        pass   
+                    else:
+                        tmp = {}
+                        for (variable, value) in attrs:
+                            tmp[variable] = value
+                        if 'name' in tmp and tmp['name'] == 'description':
+                            self.content = tmp['content']
+
+        try:
+            res = requests.request('GET', url, headers=header)
+            hp = MyHTMLParser()
+            hp.feed(res.text)
+            hp.close()
+            data = re.findall(r"阅读:(\d+),帖子:(\d+),粉丝:(\d+)", hp.content)
+            stat = {}
+            stat['text'] = hp.content
+            stat['viewCnt'] = int(data[0][0])
+            stat['postCnt'] = int(data[0][1])
+            stat['fansCnt'] = int(data[0][2])
+            stat['date'] = str(datetime.now()).split('.')[0]
+            stat['state'] = 1
+            return stat
+        except Exception as e:
+            logging.exception(e)
+            return None
+
 
     def getDataInfo(self):
         url = ( "https://api.weibo.cn/2/page?networktype=wifi&sourcetype=page&c=android&i=8477407&s={s}"
@@ -312,7 +361,7 @@ Content-Transfer-Encoding: 8bit
         data = {}
         data['state'] = -1
         try:
-            res = self.ws.request('GET', url)
+            res = self.ss.request('GET', url)
             j = res.json()
         except Exception as e:
             logging.exception(e)
@@ -357,7 +406,7 @@ Content-Transfer-Encoding: 8bit
         data = {}
         data['status'] = 0
         try:
-            res = self.ws.request('GET', url)
+            res = self.ss.request('GET', url)
             j = res.json()
         except Exception as e:
             logging.exception(e)
@@ -391,8 +440,9 @@ Content-Transfer-Encoding: 8bit
 
 if __name__ == "__main__":
     w = Weibo()
-    r = w.getStory2()
+    # r = w.getStory2()
     # r = w.getStory2('xxx')
+    r = w.getChaohuaStat()
     print(r)
     # comment = '测试评论'
     # segment_id = '4184181225059656'
