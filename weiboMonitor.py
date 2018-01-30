@@ -256,9 +256,10 @@ def checkSuperTopic():
         topicInfo = weibo.getChaohuaStat()
     log = '#%s# 超话数据：\n'%(memberName)
     log += '时间：%s'%topicInfo['date'] + '\n'
-    log += topicInfo['text'] + '\n'
-    log += '粉丝增加了：%d'%(topicInfo['fansCnt'] - topicInfoOld['fansCnt']) + '\n'
-    log += '帖子增加了：%d'%(topicInfo['postCnt'] - topicInfoOld['postCnt'])
+    log += '粉丝：%s，增加了：%d'%(topicInfo['fansCnt'], 
+        topicInfo['fansCnt'] - topicInfoOld['fansCnt']) + '\n'
+    log += '帖子：%s，增加了：%d'%(topicInfo['postCnt'], 
+        topicInfo['postCnt'] - topicInfoOld['postCnt'])
     utils.SendPrivatesMsg(qqbot, adminQQ, log)
     topicInfoOld = topicInfo
     saveJson(topicInfoOld, topiclogFN)
