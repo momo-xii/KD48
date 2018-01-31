@@ -185,7 +185,7 @@ def checkStory():
 
     elif result['status'] == -2:
         errorsList = ['未知错误', '校验参数不存在', '系统繁忙', 'invalid weibo user!', 
-        "API config 'api.main.stories_details' is wrong or invalid!"]
+        "API config 'api.main.stories_details' is wrong or invalid!", 'short circuit']
         logging.warning('checkStory: ' + result['msg'])
         if result['msg'] in errorsList:
             return
