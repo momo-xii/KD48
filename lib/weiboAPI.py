@@ -314,8 +314,8 @@ Content-Transfer-Encoding: 8bit
         header['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.221 Safari/537.36 SE 2.X MetaSr 1.0'
         header['Accept-Encoding'] = 'gzip, deflate, sdch'
         header['Accept-Language'] = 'zh-CN,zh;q=0.8'
-        header['Cookie'] = 'YF-Page-G0=8fee13afa53da91ff99fc89cc7829b07; SUB=_2AkMtMAf9f8NxqwJRmPETzW7rao5zzwnEieKbbPYmJRMxHRl-yT9kqhIEtRB6BrApEiUasol6dtZ0SZgScUxE2fBksmIa; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9W52w0SWCbgjrbfA2c.D9Lk0'
-
+        # header['Cookie'] = 'YF-Page-G0=8fee13afa53da91ff99fc89cc7829b07; SUB=_2AkMtMAf9f8NxqwJRmPETzW7rao5zzwnEieKbbPYmJRMxHRl-yT9kqhIEtRB6BrApEiUasol6dtZ0SZgScUxE2fBksmIa; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9W52w0SWCbgjrbfA2c.D9Lk0'
+        header['Cookie'] = 'TC-V5-G0=10672b10b3abf31f7349754fca5d2248; TC-Page-G0=4c4b51307dd4a2e262171871fe64f295; WBStorage=c5ff51335af29d81|undefined; login_sid_t=8767d43d858aba5ed1b4279f1d35bc75; cross_origin_proto=SSL; TC-Ugrow-G0=e66b2e50a7e7f417f6cc12eec600f517; _s_tentry=weibo.com; Apache=8529576849573.597.1518972118867; SINAGLOBAL=8529576849573.597.1518972118867; ULV=1518972118874:1:1:1:8529576849573.597.1518972118867:; SSOLoginState=1518972130; SCF=AqUhPTLo21qZ5ETEMAJREdL-qe1qV5RoaayLauUpO-_sygWqRd6noEYum9qg9EVNZhkCSsBYDPqZDDzaE0eqBCQ.; SUB=_2A253jdyyDeRhGeNG41IY9CvPyjyIHXVU-0l6rDV8PUNbmtAKLWzXkW9NSwkAhjdxZS7s8GYfI95cOmYGgPkWzdFu; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWM_ACQ10lhVKiF7EZgKNV65JpX5K2hUgL.Fo-R1h54Sh-0eK52dJLoIXnLxKqLBo-LB-2LxK.L1hML12eLxKqLBK5LB.eLxKqL1-eL1KMLxK-L1K-L122LxK-L1K-LBKqLxK-L1K-LBKqLxK-L1K-LBKqt; SUHB=0IIF-YV8Ugw1ff; ALF=1550508130; un=teamsii_ins@sina.com; wvr=6'
         class MyHTMLParser(HTMLParser):
             def __init__(self):
                 HTMLParser.__init__(self)
