@@ -302,6 +302,11 @@ class KD48API(object):
                     text = extInfo['referenceContent']
                     printText += '直播：' + text + '\n'
                     printText += '来自：' + extInfo['referenceTitle'] + '\n'
+                elif extInfo['messageObject'] == 'idolFlip':
+                    if extInfo['idolFlipType'] == 3:
+                        extInfo['idolFlipUserName'] = '匿名聚聚'
+                    printText += '%s翻牌了%s的问题\n'%(senderName, extInfo['idolFlipUserName'])
+                    printText += '（具体问题与回答请前往口袋48房间查看）\n'
                 elif extInfo['messageObject'] == 'deleteMessage':
                     ignore = True
                 else:
@@ -901,7 +906,7 @@ if __name__ == "__main__":
     # liveList = api.getLiveList(token)
     # print(liveList)
 
-    # msgs = api.getRoomMsgs(token, roomId=5780791, lastTime=0, limit=10)
+    # msgs = api.getRoomMsgs(token, roomId=5773746, lastTime=0, limit=30)
     # for m in reversed(msgs['data']):
     #     msg = api.analyzeMsg(m)
     #     print(gbkIgnore(msg['printText']))
