@@ -8,6 +8,7 @@ from datetime import datetime
 import urllib.request as request
 import urllib.parse as urlparse
 from html.parser import HTMLParser
+import login_weibocom
 
 from config import weibo_ID
 gsid = weibo_ID.gsid
@@ -15,21 +16,21 @@ s = weibo_ID.s
 gsid2 = weibo_ID.gsid2
 s2 = weibo_ID.s2
 chid = weibo_ID.chid
-containerid = weibo_ID.containerid
+username = weibo_ID.username
+password = weibo_ID.password
 
 class Weibo(object):
     def __init__(self):
         self.ss = requests.Session()
-        self.wbLastTime = 0
-        self.fansCntLast = 0
-        self.postCntLast = 0
-        cntInfo = self.getChaohuaStat()
-        if cntInfo:
-            if 'errno' in cntInfo and cntInfo['errno'] < 0:
-                pass
-            else:
-                self.fansCntLast = cntInfo['fansCnt']
-                self.postCntLast = cntInfo['postCnt']
+        self.weibocomSS = login_weibocom.login(username, password)
+        # self.wbLastTime = 0
+        # self.fansCntLast = 0
+        # self.postCntLast = 0
+
+        # cntInfo = self.getChaohuaStat()
+        # if cntInfo:
+        #     self.fansCntLast = cntInfo['fansCnt']
+        #     self.postCntLast = cntInfo['postCnt']
 
 
     def getStory(self):
@@ -306,16 +307,16 @@ Content-Transfer-Encoding: 8bit
     def getChaohuaStat(self):
         url = 'https://weibo.com/p/%s/super_index'%(chid)
         header = {}
-        header['Host'] = 'weibo.com'
-        header['Connection'] = 'keep-alive'
-        header['Cache-Control'] = 'max-age=0'
-        header['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
-        header['Upgrade-Insecure-Requests'] = '1'
+        # header['Host'] = 'weibo.com'
+        # header['Connection'] = 'keep-alive'
+        # header['Cache-Control'] = 'max-age=0'
+        # header['Accept'] = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+        # header['Upgrade-Insecure-Requests'] = '1'
         header['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.221 Safari/537.36 SE 2.X MetaSr 1.0'
-        header['Accept-Encoding'] = 'gzip, deflate, sdch'
-        header['Accept-Language'] = 'zh-CN,zh;q=0.8'
+        # header['Accept-Encoding'] = 'gzip, deflate, sdch'
+        # header['Accept-Language'] = 'zh-CN,zh;q=0.8'
         # header['Cookie'] = 'YF-Page-G0=8fee13afa53da91ff99fc89cc7829b07; SUB=_2AkMtMAf9f8NxqwJRmPETzW7rao5zzwnEieKbbPYmJRMxHRl-yT9kqhIEtRB6BrApEiUasol6dtZ0SZgScUxE2fBksmIa; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9W52w0SWCbgjrbfA2c.D9Lk0'
-        header['Cookie'] = 'TC-V5-G0=10672b10b3abf31f7349754fca5d2248; TC-Page-G0=4c4b51307dd4a2e262171871fe64f295; WBStorage=c5ff51335af29d81|undefined; login_sid_t=8767d43d858aba5ed1b4279f1d35bc75; cross_origin_proto=SSL; TC-Ugrow-G0=e66b2e50a7e7f417f6cc12eec600f517; _s_tentry=weibo.com; Apache=8529576849573.597.1518972118867; SINAGLOBAL=8529576849573.597.1518972118867; ULV=1518972118874:1:1:1:8529576849573.597.1518972118867:; SSOLoginState=1518972130; SCF=AqUhPTLo21qZ5ETEMAJREdL-qe1qV5RoaayLauUpO-_sygWqRd6noEYum9qg9EVNZhkCSsBYDPqZDDzaE0eqBCQ.; SUB=_2A253jdyyDeRhGeNG41IY9CvPyjyIHXVU-0l6rDV8PUNbmtAKLWzXkW9NSwkAhjdxZS7s8GYfI95cOmYGgPkWzdFu; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWM_ACQ10lhVKiF7EZgKNV65JpX5K2hUgL.Fo-R1h54Sh-0eK52dJLoIXnLxKqLBo-LB-2LxK.L1hML12eLxKqLBK5LB.eLxKqL1-eL1KMLxK-L1K-L122LxK-L1K-LBKqLxK-L1K-LBKqLxK-L1K-LBKqt; SUHB=0IIF-YV8Ugw1ff; ALF=1550508130; un=teamsii_ins@sina.com; wvr=6'
+        # header['Cookie'] = 'TC-V5-G0=10672b10b3abf31f7349754fca5d2248; TC-Page-G0=4c4b51307dd4a2e262171871fe64f295; WBStorage=c5ff51335af29d81|undefined; login_sid_t=8767d43d858aba5ed1b4279f1d35bc75; cross_origin_proto=SSL; TC-Ugrow-G0=e66b2e50a7e7f417f6cc12eec600f517; _s_tentry=weibo.com; Apache=8529576849573.597.1518972118867; SINAGLOBAL=8529576849573.597.1518972118867; ULV=1518972118874:1:1:1:8529576849573.597.1518972118867:; SSOLoginState=1518972130; SCF=AqUhPTLo21qZ5ETEMAJREdL-qe1qV5RoaayLauUpO-_sygWqRd6noEYum9qg9EVNZhkCSsBYDPqZDDzaE0eqBCQ.; SUB=_2A253jdyyDeRhGeNG41IY9CvPyjyIHXVU-0l6rDV8PUNbmtAKLWzXkW9NSwkAhjdxZS7s8GYfI95cOmYGgPkWzdFu; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WWM_ACQ10lhVKiF7EZgKNV65JpX5K2hUgL.Fo-R1h54Sh-0eK52dJLoIXnLxKqLBo-LB-2LxK.L1hML12eLxKqLBK5LB.eLxKqL1-eL1KMLxK-L1K-L122LxK-L1K-LBKqLxK-L1K-LBKqLxK-L1K-LBKqt; SUHB=0IIF-YV8Ugw1ff; ALF=1550508130; un=teamsii_ins@sina.com; wvr=6'
         class MyHTMLParser(HTMLParser):
             def __init__(self):
                 HTMLParser.__init__(self)
@@ -333,7 +334,7 @@ Content-Transfer-Encoding: 8bit
                             self.content = tmp['content']
 
         try:
-            res = requests.request('GET', url, headers=header)
+            res = self.weibocomSS.request('GET', url, headers=header)
             hp = MyHTMLParser()
             hp.feed(res.text)
             hp.close()
@@ -349,50 +350,6 @@ Content-Transfer-Encoding: 8bit
         except Exception as e:
             logging.exception(e)
             return None
-
-
-    def getDataInfo(self):
-        url = ( "https://api.weibo.cn/2/page?networktype=wifi&sourcetype=page&c=android&i=8477407&s={s}"
-                "&ft=0&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc.&v_f=2"
-                "&gsid={g}"
-                "&lang=zh_CN&page=1&skin=default&count=20&oldwm=14010_0013&sflag=1"
-                "&containerid={c}").format(s=s, g=gsid, c=containerid)
-
-        data = {}
-        data['state'] = -1
-        try:
-            res = self.ss.request('GET', url)
-            j = res.json()
-        except Exception as e:
-            logging.exception(e)
-            return None
-
-        if 'errno' in j and j['errno'] < 0:
-            return j #['errmsg']
-
-        if 'cards' not in j:
-            return None
-        cards = j['cards']
-
-        text = ''
-        for card in cards:
-            if 'card_type_name' in card and card['card_type_name'] == '相关超级话题':
-                card_group = card['card_group']
-                for group in card_group:
-                    if 'desc' in group:
-                        text = group['desc']
-                break
-        
-        if text:
-            postCnt = text.split('帖子')[0]
-            fansCnt = text.split(' ')[-1].split('粉丝')[0]
-            data['text'] = text
-            data['postCnt'] = int(postCnt)
-            data['fansCnt'] = int(fansCnt)
-            data['date'] = str(datetime.date(datetime.now()))
-            data['state'] = 1
-
-        return data
 
 
     def checkIn(self):
@@ -444,6 +401,7 @@ if __name__ == "__main__":
     # r = w.getStory2('xxx')
     r = w.getChaohuaStat()
     print(r)
+
     # comment = '测试评论'
     # segment_id = '4184181225059656'
     # story_id = '3053424305_0'
