@@ -9,6 +9,7 @@ import urllib.request as request
 import urllib.parse as urlparse
 from html.parser import HTMLParser
 import login_weibocom
+from hashlib import md5
 
 from config import weibo_ID
 gsid = weibo_ID.gsid
@@ -19,19 +20,15 @@ chid = weibo_ID.chid
 username = weibo_ID.username
 password = weibo_ID.password
 
+def getSuperIDfromName(name):
+    m = md5()
+    m.update(name.encode('utf8'))
+    return '100808' + m.hexdigest()
+
 class Weibo(object):
     def __init__(self):
         self.ss = requests.Session()
         self.weibocomSS = login_weibocom.login(username, password)
-        # self.wbLastTime = 0
-        # self.fansCntLast = 0
-        # self.postCntLast = 0
-
-        # cntInfo = self.getChaohuaStat()
-        # if cntInfo:
-        #     self.fansCntLast = cntInfo['fansCnt']
-        #     self.postCntLast = cntInfo['postCnt']
-
 
     def getStory(self):
         url = ( "https://api.weibo.cn/2/stories/home_list?networktype=wifi&moduleID=715"
@@ -352,13 +349,41 @@ Content-Transfer-Encoding: 8bit
             return None
 
 
-    def checkIn(self):
+    def checkInWeb(self, chaohuaID):
+        url = ("https://weibo.com/p/aj/general/button?ajwvr=6&api=http://i.huati.weibo.com/aj/super/checkin"
+              "&texta=%E7%AD%BE%E5%88%B0&textb=%E5%B7%B2%E7%AD%BE%E5%88%B0&status=0"
+              "&id={id}&location=page_100808_super_index").format(id=chaohuaID)
+        header = {}
+        header['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.221 Safari/537.36 SE 2.X MetaSr 1.0'
+        stat = {}
+        try:
+            res = self.weibocomSS.request('GET', url, headers=header)
+            j = res.json()
+            # {'msg': '已签到', 'data': {'alert_title': '今日签到 第158名', 'tipMessage': '今日签到，经验值+4', 'alert_activity': '', 'alert_subtitle': '经验值+4'}, 'code': '100000'}
+            # {'msg': '今天已签到', 'data': [], 'code': 382004}
+            # {'msg': '请先关注再签到', 'data': [], 'code': 382003}
+        except Exception as e:
+            logging.exception(e)
+            stat['state'] = -1
+            return stat
+        stat['time'] = str(datetime.now()).split('.')[0]
+        stat['data'] = j['data']
+        stat['msg'] = j['msg']
+        if int(j['code']) == 100000:
+            stat['check_count'] = int(re.findall(r"第(\d+)名", j['data']['alert_title'])[0])
+            stat['state'] = 1
+        else:
+            stat['check_count'] = 0
+            stat['state'] = 0
+        return stat
+
+
+    def checkIn(self, chaohuaID=chid):
         url = ('http://mapi.weibo.com/2/page/button?request_url=http%3A%2F%2Fi.huati.weibo.com%2Fmobile%2Fsuper%2Factive_checkin%3F'
                 'pageid%3D{id}&networktype=wifi&c=android&i=8477407&s={s}&ft=0'
                 '&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc.&v_f=2&v_p=54'
                 '&gsid={g}'
-                '&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1').format(s=s, g=gsid, id=chid)
-
+                '&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1').format(s=s, g=gsid, id=chaohuaID)
 
         data = {}
         data['status'] = 0
@@ -399,8 +424,8 @@ if __name__ == "__main__":
     w = Weibo()
     # r = w.getStory2()
     # r = w.getStory2('xxx')
-    r = w.getChaohuaStat()
-    print(r)
+    # r = w.getChaohuaStat()
+    # print(r)
 
     # comment = '测试评论'
     # segment_id = '4184181225059656'

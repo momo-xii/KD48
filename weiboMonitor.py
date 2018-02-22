@@ -288,10 +288,10 @@ def getSuperTopicInfo():
         return "发生错误"
 
 def weiboCheckIn():
-    data = weibo.checkIn()
+    data = weibo.checkInWeb()
     while data['status'] == -1:
         time.sleep(3)
-        data = weibo.checkIn()
+        data = weibo.checkInWeb()
     if data['status'] == 1:
         topicInfoOld['checkCnt'] = data['check_count']
         topicInfoOld['checkInState'] = 1
