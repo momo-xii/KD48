@@ -183,12 +183,9 @@ class WDS(object):
         for f in self.flags:
             flag = self.flags[f]
             flag['count'] += math.floor(money/flag['level'])
-            if flag['count'] >= flag['target'] and flag['target'] != 0:
-                flag['finish'] = 1
+            # if flag['count'] >= flag['target'] and flag['target'] != 0:
+            #     flag['finish'] = 1
 
-
-    def initialFlag(self):
-        pass
 
     def loadNewFlag(self):
         path = os.path.join(currdir,'config','newflag.ini')
@@ -212,7 +209,7 @@ class WDS(object):
         config.write(open(path, 'w'))
 
 
-    def saveFlags(self):
+    def saveFlags(self): #to be deleted
         path = os.path.join(currdir,'config','flagStatus.ini')
         config = ConfigParser()
         for f in self.flags:
@@ -225,7 +222,7 @@ class WDS(object):
         config.write(open(path, 'w'))
 
 
-    def loadFlags(self):
+    def loadFlags(self): #to be deleted
         path = os.path.join(currdir,'config','flagStatus.ini')
         config = ConfigParser()
         config.readfp(open(path))
@@ -248,15 +245,26 @@ class WDS(object):
 
 
     def loadStatus(self):
-        path = os.path.join(currdir,'config', 'wds_t.json')
+        path = os.path.join(currdir, 'config', 'modian_data.json')
         params = loadJson(path)
         self.wdsLastTime = float(params['ctime'])
+        flag = {}
+        flag['level'] = params['baseflag']['level']
+        flag['count'] = params['baseflag']['count']
+        flag['date'] = params['baseflag']['date']
+        if flag['date'] != getISODateOnly():
+            flag['count'] = 0
+            flag['date'] = getISODateOnly()
+        self.flags['baseflag'] = flag
+        self.todayLog = params['todayLog']
 
 
     def saveStatus(self):
-        path = os.path.join(currdir,'config', 'wds_t.json')
+        path = os.path.join(currdir, 'config', 'modian_data.json')
         params = loadJson(path)
         params['ctime'] = str(self.wdsLastTime)
+        params['baseflag'] = self.flags['baseflag']
+        params['todayLog'] = self.todayLog
         saveJson(params, path)
 
 

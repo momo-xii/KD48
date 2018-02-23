@@ -32,10 +32,12 @@ class MDMonitor(object):
         self.wds_id = str(params['wds_id'])
         self.wds_link = params['wds_link']
         self.postMoney = params['postMoney'] - 1e-3
+        self.countMoney = params['countMoney']
 
         # 开关
         self.eggEnable = params['eggEnable']
         self.printRankingEnable = params['printRankingEnable']
+        self.postSummaryEnable = params['postSummaryEnable']
 
         # 定时提醒
         self.alertEnable = params['alert']['enable']
@@ -77,9 +79,9 @@ class MDMonitor(object):
         self.wds.loadStatus()
         if self.wds.wdsLastTime == 0:
             self.wds.getOrders(self.wds_id)
-
-        self.wds.loadFlags()
-        self.countMoney = self.wds.flags['baseflag']['level']
+        if self.wds.flags['baseflag']['level'] != self.countMoney:
+            self.wds.flags['baseflag']['level'] = self.countMoney
+            self.wds.flags['baseflag']['count'] = 0
 
         remain = ISOString2Time(self.end_time) - time.time()
         if remain < 0:
@@ -119,9 +121,27 @@ class MDMonitor(object):
             utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
 
 
+    def postTodaySummary(self):
+        wdsInfo = self.wds.getProjectDetail(self.wds_id)
+        log = '今日集资总结：\n'
+        log += '今日集资额：%.2f'%(float(wdsInfo['currMoney']) - self.wds.todayLog['moneyBegin']) + '\n'
+        log += '今日接棒数：%d棒（%s元/棒）'%(self.wds.todayLog['count'], self.countMoney)
+        if self.postSummaryEnable:
+            utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+        self.wds.todayLog['moneyBegin'] = float(wdsInfo['currMoney'])
+        self.wds.saveStatus()
+
+
     # 计数置零
     def setBaseflagToZero(self):
+        self.wds.todayLog['count'] = self.wds.flags['baseflag']['count']
         self.wds.flags['baseflag']['count'] = 0
+        self.wds.flags['baseflag']['date'] = getISODateOnly()
+
+
+    def zeroClockEvent(self):
+        self.setBaseflagToZero()
+        self.postTodaySummary()
 
 
     # 载入新的flag
@@ -249,26 +269,25 @@ class MDMonitor(object):
                         utils.SendGroupsMsg(qqbot, self.QQGroups, logqpz.strip())
 
                 # flag
-                for name in self.wds.flags:
-                    if name == 'baseflag':
-                        continue
-                    flag = self.wds.flags[name]
-                    log = 'flag：%s，%.2f元一棒，进度：%d/%d'%(
-                        name.decode('gb18030'),flag['level'],flag['count'],flag['target'])
-                    if money >= flag['level']:
-                        utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+                # for name in self.wds.flags:
+                #     if name == 'baseflag':
+                #         continue
+                #     flag = self.wds.flags[name]
+                #     log = 'flag：%s，%.2f元一棒，进度：%d/%d'%(
+                #         name.decode('gb18030'),flag['level'],flag['count'],flag['target'])
+                #     if money >= flag['level']:
+                #         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
 
-                names = list(self.wds.flags.keys())
-                for name in names:
-                    flag = self.wds.flags[name]
-                    if flag['finish'] == 1:
-                        log = 'flag【%s】已完成：%.2f元一棒，完成度：%d/%d'%(
-                            name.decode('gb18030'),flag['level'],flag['count'],flag['target'])
-                        utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
-                        self.wds.flags.pop(name)
+                # names = list(self.wds.flags.keys())
+                # for name in names:
+                #     flag = self.wds.flags[name]
+                #     if flag['finish'] == 1:
+                #         log = 'flag【%s】已完成：%.2f元一棒，完成度：%d/%d'%(
+                #             name.decode('gb18030'),flag['level'],flag['count'],flag['target'])
+                #         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+                #         self.wds.flags.pop(name)
                 time.sleep(1)
             self.wds.saveStatus()
-            self.wds.saveFlags()
 
 
     ##### 定时提醒 #####
@@ -322,13 +341,13 @@ class MDMonitor(object):
         self.scheduler.add_job(self.endingMonitor, 'interval', seconds=10, id='endingMonitor',
             coalesce=True, max_instances=1)
         
-        self.scheduler.add_job(self.loadNewFlag, 'interval', seconds=10, id='loadNewFlag',
-            coalesce=True, max_instances=1)
+        # self.scheduler.add_job(self.loadNewFlag, 'interval', seconds=10, id='loadNewFlag',
+        #     coalesce=True, max_instances=1)
 
-        self.scheduler.add_job(self.setBaseflagToZero, 'cron', hour=0, id='tozero', 
+        self.scheduler.add_job(self.zeroClockEvent, 'cron', hour=0, id='zeroEvent', 
             misfire_grace_time=300, coalesce=True)
 
-        if wdsParams['printRankingEnable']:
+        if self.printRankingEnable:
             # 每日9-24点整点播报排行榜
             self.scheduler.add_job(self.postRankingList, 'cron', hour='9-23,0', id='postrank', 
                 misfire_grace_time=60, coalesce=True)

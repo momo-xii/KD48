@@ -37,19 +37,22 @@ def gbkIgnore(text):
     '''过滤非gbk符号，用于：Windows系统cmd窗口输出，CoolQ路径不支持非gbk字符'''
     return text.encode('gbk','ignore').decode('gbk','ignore')
 
-def ISOString2Time(s):
-    try:
-        d = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
-    except TypeError:
-        d = datetime(*(time.strptime(s, "%Y-%m-%d %H:%M:%S")[0:6]))
-    return time.mktime(d.timetuple())
+def ISOTime2Timestamp(s):
+    d = datetime.strptime(s, "%Y-%m-%d %H:%M:%S")
+    return d.timestamp()
 
-ISOTime2Timestamp = ISOString2Time
+ISOString2Time = ISOTime2Timestamp
 
-def Time2ISOString(s):
+def Timestamp2ISOTime(s):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(float(s)))
 
-Timestamp2ISOTime = ISOString2Time
+Time2ISOString = Timestamp2ISOTime
+
+def getISODateOnly():
+    return str(datetime.now()).split()[0]
+
+def getISODateAndTime():
+    return str(datetime.now()).split('.')[0]
 
 def isVaildDate(date):
     try:
@@ -76,3 +79,20 @@ def saveJson(data, path):
 
 def killProcess(pid):
     os.popen('taskkill.exe /pid:'+str(pid))
+
+def mkdir(path):
+    try:
+        os.makedirs(path)
+    except FileExistsError:
+        pass
+
+# 从alInfo中筛选
+# 筛选特定成员
+def getInfoFromName(name, allInfo):
+    res = list(filter(lambda x:x['memberName'] == name, allInfo))
+    return res[0]
+
+# 筛选groupId为10的成员，即SNH48的成员
+def getInfoFromGroup(groupId):
+    res = list(filter(lambda x:x['groupId'] == groupId, allInfo))
+    return res

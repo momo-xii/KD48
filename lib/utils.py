@@ -32,13 +32,6 @@ def error(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def mkdir(path):
-    try:
-        os.makedirs(path)
-    except FileExistsError:
-        pass
-
-
 def match(text, keywords):
     for keyword in keywords:
         if keyword in text:
