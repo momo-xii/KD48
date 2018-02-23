@@ -16,33 +16,25 @@ gsid = weibo_ID.gsid
 s = weibo_ID.s
 gsid2 = weibo_ID.gsid2
 s2 = weibo_ID.s2
-chid = weibo_ID.chid
 username = weibo_ID.username
 password = weibo_ID.password
-
-def getSuperIDfromName(name):
-    m = md5()
-    m.update(name.encode('utf8'))
-    return '100808' + m.hexdigest()
 
 class Weibo(object):
     def __init__(self):
         self.ss = requests.Session()
         self.weibocomSS = login_weibocom.login(username, password)
 
-    def getStory(self):
+    def getSuperIDfromName(self, name):
+        m = md5()
+        m.update(name.encode('utf8'))
+        return '100808' + m.hexdigest()
+
+    def getStoryList(self):
         url = ( "https://api.weibo.cn/2/stories/home_list?networktype=wifi&moduleID=715"
                 "&c=android&i=8477407&s={s}&ft=0&wm=14010_0013"
                 "&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc.&v_f=2"
                 "&gsid={g}"
                 "&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1").format(s=s, g=gsid)
-
-        url2 = ("https://api.weibo.cn/2/stories/details?networktype=wifi&extprops=%7B%7D&moduleID=715"
-                "&c=android&i=8477407&s={s}&ft=0&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc."
-                "&v_f=2&gsid={g}"
-                "&lang=zh_CN&skin=default&type=0&oldwm=14010_0013&sflag=1&story_ids=").format(s=s, g=gsid)
-
-        storyExist = False
 
         result = {}
         result['status'] = 1
@@ -74,78 +66,14 @@ class Weibo(object):
 
         storylist = j['story_list']
 
-        for story in storylist:
-            if story['story']['owner']['id'] == mhid:
-                story_id = story['story']['story_id']
-                storyExist = True
-
-        if not storyExist:
-            result['status'] = 0
-            result['msg'] = '没有发布微博故事'
-            return result
-
-        urlstory = url2 + story_id
-
-        try:
-            res = self.ss.request('GET', urlstory)
-            j = res.json()
-        except Exception as e:
-            text = '获取微博故事失败！'
-            logging.error(text)
-            logging.exception(e)
-            result['status'] = -100
-            result['msg'] = text
-            return result
-
-        if 'errno' in j:
-            logging.error(j['errmsg'])
-            result['status'] = -2
-            result['errno'] = j['errno']
-            result['msg'] = j['errmsg']
-            return result
-
-        storyInfo = []
-        if 'story_details' not in j:
-            result['status'] = -1
-            result['msg'] = 'story_details keyword not exists!'
-            return result
-
-        story = j['story_details'][0]
-        story_id = story['story']['story_id']
-        segments = story['story']['segments']
-        for seg in segments:
-            #seg['expire_time']
-            segment_id = seg['segment_id']
-            # create_time = seg['create_time']
-            # if self.wbLastTime < create_time:
-            #     self.wbLastTime = create_time
-            resources = seg['resources']
-            for res in resources:
-                if res['resource_type'] == 2: # 视频封面图片
-                    imgurl = res['hd_url']
-                elif res['resource_type'] in [0,1]: #video or image
-                    currstory = {}
-                    currstory['type'] = res['resource_type']
-                    currstory['url'] = res['hd_url']
-                    currstory['duration'] = res['duration']
-                    currstory['create_time'] = int(seg['create_time']) / 1000
-                    currstory['comment_count'] = seg['comment_count']
-                    currstory['play_count'] = seg['play_count']
-                    currstory['like_count'] = seg['like_count']
-                    currstory['share_count'] = seg['share_count']
-                    currstory['story_id'] = story_id
-                    currstory['segment_id'] = segment_id
-                    currstory['rank_text'] = seg['segment_rank']['text'] if 'segment_rank' in seg else None
-                    currstory['rank'] = seg['segment_rank']['rank'] if 'segment_rank' in seg else None
-                    storyInfo.append(currstory)
-        result['data'] = storyInfo
-        result['status'] = 1
-        result['msg'] = '成功获取微博故事'
-        return result
+        # for story in storylist:
+        #     if story['story']['owner']['id'] == mhid:
+        #         story_id = story['story']['story_id']
+        return storylist
 
 
-    def getStory2(self, story_id='3053424305_0'):
-        url2 = ("https://api.weibo.cn/2/stories/details?networktype=wifi&extprops=%7B%7D&moduleID=715"
+    def getStory(self, story_id='3053424305_0'):
+        url = ("https://api.weibo.cn/2/stories/details?networktype=wifi&extprops=%7B%7D&moduleID=715"
                 "&c=android&i=8477407&s={s}&ft=0&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc."
                 "&v_f=2&gsid={g}"
                 "&lang=zh_CN&skin=default&type=0&oldwm=14010_0013&sflag=1&story_ids=").format(s=s, g=gsid)
@@ -158,7 +86,7 @@ class Weibo(object):
         result['data'] = {}
         result['msg'] = ''
 
-        urlstory = url2 + story_id
+        urlstory = url + story_id
 
         try:
             res = self.ss.request('GET', urlstory)
@@ -301,8 +229,9 @@ Content-Transfer-Encoding: 8bit
         return result
 
 
-    def getChaohuaStat(self):
-        url = 'https://weibo.com/p/%s/super_index'%(chid)
+    def getChaohuaStat(self, name):
+        chaohuaID = self.getSuperIDfromName(name)
+        url = 'https://weibo.com/p/%s/super_index'%(chaohuaID)
         header = {}
         # header['Host'] = 'weibo.com'
         # header['Connection'] = 'keep-alive'
@@ -349,7 +278,8 @@ Content-Transfer-Encoding: 8bit
             return None
 
 
-    def checkInWeb(self, chaohuaID):
+    def checkInWeb(self, name):
+        chaohuaID = self.getSuperIDfromName(name)
         url = ("https://weibo.com/p/aj/general/button?ajwvr=6&api=http://i.huati.weibo.com/aj/super/checkin"
               "&texta=%E7%AD%BE%E5%88%B0&textb=%E5%B7%B2%E7%AD%BE%E5%88%B0&status=0"
               "&id={id}&location=page_100808_super_index").format(id=chaohuaID)
@@ -378,7 +308,8 @@ Content-Transfer-Encoding: 8bit
         return stat
 
 
-    def checkIn(self, chaohuaID=chid):
+    def checkInMobile(self, name):
+        chaohuaID = self.getSuperIDfromName(name)
         url = ('http://mapi.weibo.com/2/page/button?request_url=http%3A%2F%2Fi.huati.weibo.com%2Fmobile%2Fsuper%2Factive_checkin%3F'
                 'pageid%3D{id}&networktype=wifi&c=android&i=8477407&s={s}&ft=0'
                 '&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc.&v_f=2&v_p=54'

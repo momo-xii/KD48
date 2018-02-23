@@ -63,8 +63,15 @@ def ReplyHandler(msg):
                 result += comm + '\n'
             result = result.strip()
 
-        if msg == "超话数据":
-            result = getSuperTopicInfo()
+        if msg.split()[0] == "超话数据":
+            name = ''
+            if len(msg.split()) == 1:
+                name = ''
+            elif len(msg.split()) ==2:
+                name = msg.split()[1]
+            else:
+                return '参数错误'
+            result = getSuperTopicInfo(name)
 
         if msg.split()[0] == "微博故事":
             weibo_id = ''
@@ -146,7 +153,7 @@ qqbot.start()
 weibo = Weibo()
 storyLastTime = 0
 # 初始化微博故事
-res = weibo.getStory2()
+res = weibo.getStory()
 if res['status'] > 0:
     storyLastTime = res['data'][-1]['create_time']
 elif res['status'] == 0:
@@ -160,7 +167,7 @@ PrintLog('初始化微博故事成功')
 
 def checkStory():
     global storyLastTime
-    result = weibo.getStory2()
+    result = weibo.getStory()
     story = result['data']
     if result['status'] > 0:
         for s in story:
@@ -209,15 +216,15 @@ def printStoryInfo(weibo_id=''):
     result = ''
     if weibo_id:
         if weibo_id.isdigit():
-            res = weibo.getStory2(weibo_id)
+            res = weibo.getStory(weibo_id)
         else:
             weiboIdDict = loadJson('config/weiboid.json')
             if weibo_id in weiboIdDict:
-                res = weibo.getStory2(weiboIdDict[weibo_id])
+                res = weibo.getStory(weiboIdDict[weibo_id])
             else:
                 return '参数无效'
     else:
-        res = weibo.getStory2()
+        res = weibo.getStory()
     story = res['data']
     nickname = res['nickname']
     if res['status'] > 0:
@@ -246,10 +253,10 @@ def printStoryInfo(weibo_id=''):
 topiclogFN = 'config/superTopic.json'
 topicInfoOld = None
 if not os.path.exists(topiclogFN):
-    topicInfo = weibo.getChaohuaStat()
+    topicInfo = weibo.getChaohuaStat(memberName)
     while not topicInfo:
         time.sleep(3)
-        topicInfo = weibo.getChaohuaStat()
+        topicInfo = weibo.getChaohuaStat(memberName)
     saveJson(topicInfo, topiclogFN)
     topicInfoOld = topicInfo
 else:
@@ -257,14 +264,14 @@ else:
 
 def checkSuperTopic():
     global topicInfoOld
-    topicInfo = weibo.getChaohuaStat()
+    topicInfo = weibo.getChaohuaStat(memberName)
     visitCnt = 0
     while not topicInfo:
         if visitCnt >= 10:
             return
         visitCnt += 1
         time.sleep(3)
-        topicInfo = weibo.getChaohuaStat()
+        topicInfo = weibo.getChaohuaStat(memberName)
     log = '#%s# 超话数据：\n'%(memberName)
     log += '时间：%s'%topicInfo['date'] + '\n'
     log += '粉丝：%s，增加了：%d'%(topicInfo['fansCnt'], 
@@ -275,10 +282,12 @@ def checkSuperTopic():
     topicInfoOld = topicInfo
     saveJson(topicInfoOld, topiclogFN)
 
-def getSuperTopicInfo():
-    topicInfo = weibo.getChaohuaStat()
+def getSuperTopicInfo(name):
+    if name is '':
+        name = memberName
+    topicInfo = weibo.getChaohuaStat(name)
     if topicInfo:
-        log = '#%s# 超话数据：\n'%(memberName)
+        log = '#%s# 超话数据：\n'%(name)
         log += '时间：%s'%topicInfo['date'] + '\n'
         log += '阅读：%.2f亿'%(topicInfo['viewCnt']/1e8) + '\n'
         log += '帖子：%s'%topicInfo['postCnt'] + '\n'
@@ -288,10 +297,10 @@ def getSuperTopicInfo():
         return "发生错误"
 
 def weiboCheckIn():
-    data = weibo.checkInWeb()
+    data = weibo.checkInWeb(memberName)
     while data['status'] == -1:
         time.sleep(3)
-        data = weibo.checkInWeb()
+        data = weibo.checkInWeb(memberName)
     if data['status'] == 1:
         topicInfoOld['checkCnt'] = data['check_count']
         topicInfoOld['checkInState'] = 1
