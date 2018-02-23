@@ -125,6 +125,9 @@ class WDS(object):
             return wdsInfo
         
         orderList = j['data']
+        for order in orderList:
+            order['timpstamp'] = ISOString2Time(order['pay_time'])
+        orderList.sort(key=lambda x:(-x['timpstamp']))
         for order in reversed(orderList):
             ctime = ISOString2Time(order['pay_time'])
             if self.wdsLastTime < ctime or debug:
@@ -287,6 +290,7 @@ class Egg(object):
 
 if __name__ == "__main__":
     wds = WDS()
-    res = wds.getProjectDetail(10309)
+    res = wds.getProjectDetail(10660)
     print(res)
-    # getOrders(self, pro_id, page=0):
+    re = wds.getOrders(10660, page=1)
+    print(re)
