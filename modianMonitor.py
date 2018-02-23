@@ -354,11 +354,11 @@ def ReplyHandler(msg):
     try:
         if msgs[0] == '更新flag':
             txt = msg.lstrip('更新flag').strip()
-            saveJson(txt, self.flagtextPath)
+            saveJson(txt, monitor.flagtextPath)
             result = '成功更新flag内容，回复【查看flag】查看最新flag'
 
         if msgs[0] == '查看flag':
-            result = loadJson(self.flagtextPath)
+            result = loadJson(monitor.flagtextPath)
 
     except Exception as e:
         logging.exception(e)
