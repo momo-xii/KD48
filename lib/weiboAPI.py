@@ -271,7 +271,7 @@ Content-Transfer-Encoding: 8bit
             stat['postCnt'] = int(data[0][1])
             stat['fansCnt'] = int(data[0][2])
             stat['date'] = str(datetime.now()).split('.')[0]
-            stat['state'] = 1
+            stat['status'] = 1
             return stat
         except Exception as e:
             logging.exception(e)
@@ -315,15 +315,15 @@ Content-Transfer-Encoding: 8bit
             # {'code': '382011', 'msg': '已关注过了', 'data': []}
         except Exception as e:
             logging.exception(e)
-            result['state'] = -1
+            result['status'] = -1
             result['msg'] = '发生错误'
             return result
         result['data'] = j['data'] if 'data' in j else ''
         result['msg'] = j['msg'] if 'msg' in j else ''
         if int(j['code']) == 100000:
-            result['state'] = 1
+            result['status'] = 1
         else:
-            result['state'] = 0
+            result['status'] = 0
         return result
 
 
@@ -344,17 +344,17 @@ Content-Transfer-Encoding: 8bit
             # {'msg': '请先关注再签到', 'data': [], 'code': 382003}
         except Exception as e:
             logging.exception(e)
-            stat['state'] = -1
+            stat['status'] = -1
             return stat
         stat['time'] = str(datetime.now()).split('.')[0]
         stat['data'] = j['data']
         stat['msg'] = j['msg']
         if int(j['code']) == 100000:
             stat['check_count'] = int(re.findall(r"第(\d+)名", j['data']['alert_title'])[0])
-            stat['state'] = 1
+            stat['status'] = 1
         else:
             stat['check_count'] = 0
-            stat['state'] = 0
+            stat['status'] = 0
         return stat
 
 
