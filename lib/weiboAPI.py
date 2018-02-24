@@ -16,13 +16,13 @@ gsid = weibo_ID.gsid
 s = weibo_ID.s
 gsid2 = weibo_ID.gsid2
 s2 = weibo_ID.s2
-username = weibo_ID.username
-password = weibo_ID.password
 
 class Weibo(object):
-    def __init__(self):
+    def __init__(self, username, password):
         self.ss = requests.Session()
-        self.weibocomSS = login_weibocom.login(username, password)
+        loginData = login_weibocom.login(username, password)
+        self.weibocomSS = loginData['session']
+        self.uid = loginData['uid']
 
     def getSuperIDfromName(self, name):
         m = md5()
@@ -278,6 +278,55 @@ Content-Transfer-Encoding: 8bit
             return None
 
 
+    def superfollowWeb(self, name, uid=None):
+        if uid is None:
+            uid = self.uid
+        chaohuaID = self.getSuperIDfromName(name)
+        url = "https://weibo.com/aj/proxy?ajwvr=6"
+        header = {}
+        header['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.221 Safari/537.36 SE 2.X MetaSr 1.0'
+        header['Referer'] = 'https://weibo.com/p/%s/super_index'%(chaohuaID)
+
+        data = {}
+        data['uid'] = uid
+        data['objectid'] = '1022:%s'%(chaohuaID)
+        data['f'] = '1'
+        data['location'] = 'page_100808_super_index'
+        data['oid'] = chaohuaID.lstrip('100808')
+        data['wforce'] = '1'
+        data['nogroup'] = '1'
+        data['template'] = '4'
+        data['isinterest'] = 'true'
+        data['api'] = 'http://i.huati.weibo.com/aj/superfollow'
+        data['pageid'] = chaohuaID
+        data['reload'] = '1'
+        data['_t'] = '0'
+        data['extra'] = ''
+        data['refer_sort'] = ''
+        data['refer_flag'] = ''
+        data['fnick'] = ''
+
+        result = {}
+        try:
+            res = self.weibocomSS.post(url, headers=header, data=data)
+            j = res.json()
+            # {"code":"100000","msg":"已关注","data":{"tipMessage":"已关注，经验值+1"}}
+            # {'code': '100001', 'data': {}, 'msg': '系统繁忙，请稍候再试吧。'}
+            # {'code': '382011', 'msg': '已关注过了', 'data': []}
+        except Exception as e:
+            logging.exception(e)
+            result['state'] = -1
+            result['msg'] = '发生错误'
+            return result
+        result['data'] = j['data'] if 'data' in j else ''
+        result['msg'] = j['msg'] if 'msg' in j else ''
+        if int(j['code']) == 100000:
+            result['state'] = 1
+        else:
+            result['state'] = 0
+        return result
+
+
     def checkInWeb(self, name):
         chaohuaID = self.getSuperIDfromName(name)
         url = ("https://weibo.com/p/aj/general/button?ajwvr=6&api=http://i.huati.weibo.com/aj/super/checkin"
@@ -286,6 +335,7 @@ Content-Transfer-Encoding: 8bit
         header = {}
         header['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.221 Safari/537.36 SE 2.X MetaSr 1.0'
         stat = {}
+        stat['msg'] = ''
         try:
             res = self.weibocomSS.request('GET', url, headers=header)
             j = res.json()
@@ -353,11 +403,10 @@ Content-Transfer-Encoding: 8bit
 
 if __name__ == "__main__":
     w = Weibo()
-    # r = w.getStory2()
-    # r = w.getStory2('xxx')
     # r = w.getChaohuaStat()
     # print(r)
-
+    res=w.superfollow('123')
+    print(res)
     # comment = '测试评论'
     # segment_id = '4184181225059656'
     # story_id = '3053424305_0'

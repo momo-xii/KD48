@@ -144,8 +144,6 @@ def login(username, password):
         get_cha(pcid)
         postdata['door'] = input(u"请输入验证码")
         login_page = session.post(login_url, data=postdata, headers=headers)
-    # import pdb
-    # pdb.set_trace()
     login_loop = (login_page.content.decode("GBK"))
     # print(login_loop)
     pa = r'location\.replace\([\'"](.*?)[\'"]\)'
@@ -162,7 +160,12 @@ def login(username, password):
     # print(weibo_page.content.decode("utf-8"))
     userID = re.findall(weibo_pa, weibo_page.content.decode("utf-8", 'ignore'), re.S)[0]
     # print(u"欢迎你 %s, 你在正在使用 xchaoinfo 写的模拟登录微博" % userID)
-    return session
+    # import pdb
+    # pdb.set_trace()
+    result = {}
+    result['session'] = session
+    result['uid'] = uuid_res
+    return result
 
 
 if __name__ == "__main__":

@@ -43,6 +43,8 @@ QQGroups = weibo_admins.QQGroups
 adminQQ = weibo_admins.adminQQ
 QQGroups_lite = weibo_admins.QQGroups_lite
 memberName = weibo_admins.memberName
+username = weibo_admins.username
+password = weibo_admins.password
 
 # 每个group分别有个lasttime
 # 'lastTime': {'group1':0, 'group2':0}
@@ -150,7 +152,7 @@ def ReplyRrivateMsg(message):
 qqbot.start()
 
 ##### 微博信息监控 #####
-weibo = Weibo()
+weibo = Weibo(username, password)
 storyLastTime = 0
 # 初始化微博故事
 res = weibo.getStory()
@@ -218,7 +220,7 @@ def printStoryInfo(weibo_id=''):
         if weibo_id.isdigit():
             res = weibo.getStory(weibo_id)
         else:
-            weiboIdDict = loadJson('config/weiboid.json')
+            weiboIdDict = loadJson('data/WeiboId.json')
             if weibo_id in weiboIdDict:
                 res = weibo.getStory(weiboIdDict[weibo_id])
             else:
