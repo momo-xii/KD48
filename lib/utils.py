@@ -9,7 +9,7 @@ import requests
 from cqsdk import RE_CQ_SPECIAL, \
     RcvdPrivateMessage, RcvdGroupMessage, RcvdDiscussMessage, \
     SendPrivateMessage, SendGroupMessage, SendDiscussMessage, \
-    GroupMemberDecrease, GroupMemberIncrease
+    GroupMemberDecrease, GroupMemberIncrease, CQRecord
 from utility import filter_emoji
 
 
@@ -59,6 +59,19 @@ def SendGroupMsg(qqbot, group, text):
 def SendGroupsMsg(qqbot, groups, text):
     for group in groups:
         SendGroupMsg(qqbot, group, text)
+
+
+def SendRecordMsg(qqbot, t, QQGroups=[], QQIds=[]):
+    '''语音消息：将文字和语音CQ码分开发送
+    '''
+    co = CQRecord.PATTERN
+    text = co.sub('（语音见下一条）', t)
+    if QQGroups:
+        SendGroupsMsg(qqbot, QQGroups, text)
+        SendGroupsMsg(qqbot, QQGroups, t)
+    if QQIds:
+        SendPrivatesMsg(qqbot, QQIds, text)
+        SendPrivatesMsg(qqbot, QQIds, t)
 
 
 def reply(qqbot, message, text):

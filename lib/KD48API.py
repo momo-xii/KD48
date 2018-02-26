@@ -142,13 +142,14 @@ class KD48API(object):
             memberId = room['memberId']
             hotRooms[memberId] = room
         result['data'] = hotRooms
+        result['roomList'] = roomInfo
         result['msg'] = '成功获取热门房间列表'
-        # logging.info('成功获取热门房间列表')
         return result
 
     # 分析热门房间是否有最新消息 TODO
-    def analyzeHotRooms(self):
-        pass
+    def analyzeHotRooms(self, token):
+        res = self.getHotRooms(token, page=1, groupId=10)
+        hotRooms = res['roomList']
 
     def getRoomInfo(self, token, memberId):
         '''
@@ -248,6 +249,49 @@ class KD48API(object):
         result['data'] = j['content']['data']
         result['lastTime'] = j['content']['lastTime']
         result['msg'] = '成功获取房间消息'
+        return result
+
+
+    def getRoomComments(self, token, roomId, lastTime=0, limit=10):
+        '''
+        获取房间留言列表
+        lastTime: 最早一条信息的时间，用于继续获取前一批消息
+        limit: 每次获取信息的条数
+        '''
+        url = 'https://pjuju.48.cn/imsystem/api/im/v1/member/room/message/comment'
+        head = self.getHeader()
+        head['Host'] = 'pjuju.48.cn'
+        head['token'] = token
+
+        data = {"roomId":roomId,"lastTime":lastTime,"limit":limit}
+
+        result = {}
+        result['status'] = 1
+        result['data'] = []
+        result['msg'] = ''
+
+        try:
+            res = self.s.post(url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
+            j = res.json()
+        except Exception as e:
+            text = '获取房间留言失败！'
+            logging.error(text)
+            logging.exception(e)
+            result['status'] = -1
+            result['msg'] = text
+            return result
+
+        if j['status'] != 200:
+            logging.error(j['message'])
+            result['status'] = -1
+            result['msg'] = j['message']
+            return result
+
+        result['status'] = 1
+        result['data'] = j['content']['data']
+        result['lastTime'] = j['content']['lastTime']
+        result['msg'] = '成功获取房间留言'
         return result
 
 
@@ -906,15 +950,17 @@ if __name__ == "__main__":
     # liveList = api.getLiveList(token)
     # print(liveList)
 
-    # msgs = api.getRoomMsgs(token, roomId=5773746, lastTime=0, limit=30)
+    # msgs = api.getRoomMsgs(token, roomId=5780841, lastTime=0, limit=10)
     # for m in reversed(msgs['data']):
+    #     import pdb
+    #     pdb.set_trace()
     #     msg = api.analyzeMsg(m)
     #     print(gbkIgnore(msg['printText']))
 
     # res1 = api.getUserInfo(token, 398534)
     # print(res1)
-    res = api.getHotRooms(token, page=1, groupId=0)
-    hotRooms = res['data']
+    res = api.getHotRooms(token, page=1, groupId=0, needRootRoom=True)
+    hotRooms = res['roomList']
     print(gbkIgnore(str(hotRooms)))
 
     # memberId = 35

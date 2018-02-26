@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import threading
+import json
 import random
 import logging
 import mylog
@@ -24,7 +25,6 @@ from MsgCounter import MsgCounter
 from cqsdk import CQBot, CQAt, CQRecord, RcvdPrivateMessage, RcvdGroupMessage, \
     GroupMemberIncrease, GroupMemberDecrease
 import utils
-from weiboAPI import Weibo
 from apscheduler.schedulers.background import BackgroundScheduler
 
 pid = os.getpid()
@@ -38,18 +38,6 @@ def SendDebugMsgs(debugQQ, t):
     PrintLog(t)
     if debugQQ:
         utils.SendPrivateMsg(qqbot, str(debugQQ), t)
-
-def SendRecordMsg(t, QQGroups=[], QQIds=[]):
-    '''语音消息：将文字和语音CQ码分开发送
-    '''
-    co = CQRecord.PATTERN
-    text = co.sub('（语音见下一条）', t)
-    if QQGroups:
-        utils.SendGroupsMsg(qqbot, QQGroups, text)
-        utils.SendGroupsMsg(qqbot, QQGroups, t)
-    if QQIds:
-        utils.SendPrivatesMsg(qqbot, QQIds, text)
-        utils.SendPrivatesMsg(qqbot, QQIds, t)
 
 def PrintLog(text):
     currTimeStr = Time2ISOString(time.time())
@@ -69,7 +57,7 @@ class KD48Monitor(object):
 
         # 接收消息QQ设置
         # QQGroups_pro: 转发所有消息
-        # QQGroups_lite: 只提示房间出现，不转发消息（TODO：自己可以设置转发哪些内容）
+        # QQGroups_lite: 只提示房间出现，不转发消息
         # QQIds: 私聊转发所有消息
         self.QQIds = monitorInfo['QQIds']
         self.QQGroups_pro = monitorInfo['QQGroups_pro']
@@ -256,6 +244,7 @@ class KD48Monitor(object):
             os.system('pause')
             sys.exit()
 
+        # 房间信息初始化
         self.roomInfoPath = 'config/roomInfo.json'
         if not os.path.exists(self.roomInfoPath):
             saveJson(self.roomInfo, self.roomInfoPath)
@@ -304,7 +293,7 @@ class KD48Monitor(object):
                     # 其他成员消息只pro版本转发
                     if msgInfo['msgType'] == 2:
                         # 语音消息特殊处理
-                        SendRecordMsg(log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
+                        utils.SendRecordMsg(qqbot, log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
                     else:
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log)
                         utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log)
@@ -319,6 +308,11 @@ class KD48Monitor(object):
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log_pro)
                         utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log_pro)
                         self.beginHot = self.getRoomHot()
+                        # 留言统计
+                        self.cmtStat = {}
+                        self.cmtLastTime = int(time.time()*1000)
+                        self.scheduler.add_job(self.roomCommentMonitor, 'interval', seconds=8, 
+                            id='roomCommentMonitor', coalesce=True, max_instances=1)
                         time.sleep(1)
 
                     ##### 转发消息 #####
@@ -326,7 +320,7 @@ class KD48Monitor(object):
                     ##### pro版本：全部转发 #####
                     if msgInfo['msgType'] == 2:
                         # 语音消息特殊处理
-                        SendRecordMsg(log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
+                        utils.SendRecordMsg(qqbot, log, QQGroups=self.QQGroups_pro, QQIds=self.QQIds)
                     else:
                         utils.SendPrivatesMsg(qqbot, self.QQIds, log)
                         utils.SendGroupsMsg(qqbot, self.QQGroups_pro, log)
@@ -344,7 +338,7 @@ class KD48Monitor(object):
                         utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
                     if msgInfo['msgType'] == 2 and self.sendToLite['audio']:
                         # 语音消息
-                        SendRecordMsg(log, QQGroups=self.QQGroups_lite)
+                        utils.SendRecordMsg(qqbot, log, QQGroups=self.QQGroups_lite)
                     if msgInfo['msgType'] == 3 and self.sendToLite['video']:
                         # 视频消息
                         utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log)
@@ -376,11 +370,43 @@ class KD48Monitor(object):
                 log += "\n房间热度增加了：%d"%deltaHot
                 utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
                 utils.SendGroupsMsg(qqbot, self.QQGroups_all, log.strip())
+                # 留言统计
+                sortedCmt = [self.cmtStat[y] for y in sorted(self.cmtStat, 
+                    key=lambda x:self.cmtStat[x]['count'], reverse=True)]
+                log = '留言统计前10名：\n'
+                # log += str(sortedCmt) + '\n' # save to file
+                log += str(sortedCmt[0:10]) + '\n'
+                log += '留言人数：%d人'%len(self.cmtStat)
+                utils.SendPrivatesMsg(qqbot, self.QQIds, log.strip())
+                self.scheduler.remove_job('roomCommentMonitor')
         except Exception as e:
             SendDebugMsgs(self.debugQQ, '房间消息解析错误！可能跳过了消息！')
             logging.exception(e)
             # 如果出错，则跳过这几条消息
             self.msgLastTime = messages[0]['msgTime']
+
+
+    def roomCommentMonitor(self):
+        try:
+            comments = []
+            response = self.api.getRoomComments(self.token, self.roomId, limit=50)
+            if response['status'] != -1:
+                comments = response['data']
+
+            for cmt in reversed(comments):
+                if cmt['msgTime'] <= self.cmtLastTime:
+                    continue
+                # msgInfo = self.api.analyzeMsg(cmt, self.CoolQRoot)
+                extInfo = json.loads(cmt['extInfo'])
+                senderId = extInfo['senderId']
+                if senderId not in self.cmtStat:
+                    self.cmtStat[senderId] = {'count':1, 'name':extInfo['senderName']}
+                else:
+                    self.cmtStat[senderId]['count'] += 1
+                self.cmtLastTime = cmt['msgTime']
+        except Exception as e:
+            SendDebugMsgs(self.debugQQ, '房间留言监控错误')
+            logging.exception(e)
 
 
     def liveMonitor(self):
@@ -464,6 +490,7 @@ welcomeGroups = KD_admins.welcomeGroups
 groupCmdAuthority = {"房间信息": {'level': 1, 'lastTime': {}},
                      "直播回放": {'level': 1, 'lastTime': {}},
                      "集资链接": {'level': 2, 'lastTime': {}},
+                     "更新集资链接": {'level': 1, 'lastTime': {}},
                      "补档列表": {'level': 1, 'lastTime': {}},
                      "房间消息回放": {'level': 1, 'lastTime': {}},
                     }
@@ -513,7 +540,15 @@ def ReplyHandler(msg):
                 result = '发生错误，请重试！'
 
         if "淘宝链接" in msg or "集资链接" in msg:
-            result = longQQMsg.taobao
+            data = loadJson('config/KD_data.json')
+            result = data['moneylink']
+
+        if msg.split()[0] == '更新集资链接':
+            txt = msg.lstrip('更新集资链接').strip()
+            data = loadJson('config/KD_data.json')
+            data['moneylink'] = txt
+            saveJson(data, 'config/KD_data.json')
+            result = '成功更新集资链接，回复【集资链接】查看内容'
 
         if msg == "补档列表":
             result = longQQMsg.videoList
