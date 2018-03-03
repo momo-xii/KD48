@@ -216,7 +216,7 @@ class MDMonitor(object):
                 self.alertHistory = []
 
                 # 播报
-                log = '感谢 %s 在%s中，集资%s元，给爸爸比心(｡･ω･｡)ﾉ♡\n'%(order['nickname'],
+                log = '感谢“%s”在%s中，集资【%s】元，给爸爸比心(｡･ω･｡)ﾉ♡\n'%(order['nickname'],
                     wdsInfo['topic'], order['backer_money'])
                 log += '%d元一棒，今日目前棒数%d棒\n'%(int(self.countMoney),
                     self.wds.flags['baseflag']['count'])
@@ -292,8 +292,6 @@ class MDMonitor(object):
 
     ##### 定时提醒 #####
     def alertTimer(self):
-        if not self.alertEnable:
-            return
         if self.wdsIsEnd:
             return
         if time.time() - self.alertLastTime > self.alertInterval:
@@ -335,8 +333,9 @@ class MDMonitor(object):
         self.scheduler.add_job(self.orderMonitor, 'interval', seconds=10, id='orderMonitor',
             coalesce=True, max_instances=1)
 
-        self.scheduler.add_job(self.alertTimer, 'interval', seconds=10, id='alertTimer',
-            coalesce=True, max_instances=1)
+        if self.alertEnable:
+            self.scheduler.add_job(self.alertTimer, 'interval', seconds=10, id='alertTimer',
+                coalesce=True, max_instances=1)
 
         self.scheduler.add_job(self.endingMonitor, 'interval', seconds=10, id='endingMonitor',
             coalesce=True, max_instances=1)
