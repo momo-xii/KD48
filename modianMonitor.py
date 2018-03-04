@@ -36,8 +36,14 @@ class MDMonitor(object):
 
         # 开关
         self.eggEnable = params['eggEnable']
-        self.printRankingEnable = params['printRankingEnable']
         self.postSummaryEnable = params['postSummaryEnable']
+
+        # 排名播报
+        self.rankingEnable = params['ranking']['enable']
+        self.rankingHour = params['ranking']['hour']
+        self.rankingTop = params['ranking']['top']
+        if self.rankingTop not in [16,32]:
+            self.rankingTop = 32
 
         # 定时提醒
         self.alertEnable = params['alert']['enable']
@@ -77,11 +83,22 @@ class MDMonitor(object):
             utils.warning('配置文件中deadline格式错误，已设置为默认结束时间')
 
         self.wds.loadStatus()
+        if self.wds.data['wds_id'] != self.wds_id:
+            self.wds.data['wds_id'] = self.wds_id
+            self.wds.todayLog['moneyBegin'] = float(wdsInfo['currMoney'])
+            self.wds.flags['baseflag']['count'] = 0
+            self.wds.flags['baseflag']['sum'] = 0
         if self.wds.wdsLastTime == 0:
             self.wds.getOrders(self.wds_id)
         if self.wds.flags['baseflag']['level'] != self.countMoney:
             self.wds.flags['baseflag']['level'] = self.countMoney
             self.wds.flags['baseflag']['count'] = 0
+            self.wds.flags['baseflag']['sum'] = 0
+        if self.wds.flags['baseflag']['date'] != getISODateOnly():
+            self.wds.flags['baseflag']['count'] = 0
+            self.wds.flags['baseflag']['sum'] = 0
+            self.wds.flags['baseflag']['date'] = getISODateOnly()
+        self.wds.saveStatus()
 
         remain = ISOString2Time(self.end_time) - time.time()
         if remain < 0:
@@ -89,6 +106,7 @@ class MDMonitor(object):
             print('本次摩点集资已结束')
             os.system('pause')
             killmyself()
+            time.sleep(10)
 
 
     def initial(self):
@@ -110,21 +128,26 @@ class MDMonitor(object):
                 log += '\n%d、%s，总集资额：%.2f元'%(i+1, rankList[i]['nickname'], 
                     float(rankList[i]['backer_money']))
         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
-        time.sleep(0.5)
-        if len(rankList) >= 32:
-            log = title
-            log += '\n高飞组（17-32名）：'
-            for i in range(16,32):
-                if i < len(rankList):
-                    log += '\n%d、%s，总集资额：%.2f元'%(i+1, rankList[i]['nickname'], 
-                        float(rankList[i]['backer_money']))
-            utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+
+        if self.rankingTop == 32:
+            time.sleep(0.5)
+            if len(rankList) >= 32:
+                log = title
+                log += '\n高飞组（17-32名）：'
+                for i in range(16,32):
+                    if i < len(rankList):
+                        log += '\n%d、%s，总集资额：%.2f元'%(i+1, rankList[i]['nickname'], 
+                            float(rankList[i]['backer_money']))
+                utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
 
 
     def postTodaySummary(self):
         wdsInfo = self.wds.getProjectDetail(self.wds_id)
+        sum1 = float(wdsInfo['currMoney']) - self.wds.todayLog['moneyBegin']
+        sum2 = self.wds.todayLog['sum']
+        sumMoney = max(sum1, sum2)
         log = '今日集资总结：\n'
-        log += '今日集资额：%.2f'%(float(wdsInfo['currMoney']) - self.wds.todayLog['moneyBegin']) + '\n'
+        log += '今日集资额：%.2f元\n'%(sumMoney)
         log += '今日接棒数：%d棒（%s元/棒）'%(self.wds.todayLog['count'], self.countMoney)
         if self.postSummaryEnable:
             utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
@@ -135,7 +158,9 @@ class MDMonitor(object):
     # 计数置零
     def setBaseflagToZero(self):
         self.wds.todayLog['count'] = self.wds.flags['baseflag']['count']
+        self.wds.todayLog['sum'] = self.wds.flags['baseflag']['sum']
         self.wds.flags['baseflag']['count'] = 0
+        self.wds.flags['baseflag']['sum'] = 0
         self.wds.flags['baseflag']['date'] = getISODateOnly()
 
 
@@ -171,122 +196,130 @@ class MDMonitor(object):
                 wdsInfo_pk = self.wds.getProjectDetail(self.wds_id_pk)
 
             for order in orderList:
-                money = float(order['backer_money'])
-                self.wds.flagCounters(money)
+                try:
+                    money = float(order['backer_money'])
+                    self.wds.flagCounters(money)
 
-                # 彩蛋 未检查
-                if self.eggEnable:
-                    eggExist = False
-                    eggs = self.egg.eggs
-                    eggMoney = list(eggs.keys())
-                    if money in eggMoney:
-                        eggExist = True
-                        logEgg = '%s 集资了%.2f元，触发了彩蛋【%s】'%(order['nickname'],
-                            money, eggs[money]['name'].decode('gb18030'))
-                        msg = eggs[money]['msg']
-                        if msg != '':
-                            logEgg += '\n%s'%(eggs[money]['msg'].decode('gb18030'))
-                        if eggExist and money < 34.999:
+                    # 彩蛋 未检查
+                    if self.eggEnable:
+                        eggExist = False
+                        eggs = self.egg.eggs
+                        eggMoney = list(eggs.keys())
+                        if money in eggMoney:
+                            eggExist = True
+                            logEgg = '%s 集资了%.2f元，触发了彩蛋【%s】'%(order['nickname'],
+                                money, eggs[money]['name'])
+                            msg = eggs[money]['msg']
+                            if msg != '':
+                                logEgg += '\n%s'%(eggs[money]['msg'])
+                            if eggExist and money < 34.999:
+                                utils.SendGroupsMsg(qqbot, self.QQGroups, logEgg.strip())
+                                eggExist = False
+
+                        qpzExist = False
+                        if float(wdsInfo['currMoney']) % 100 == 0:
+                            qpzExist = True
+                            logqpz = '%s 集资了%.2f元，触发了彩蛋【小强迫症】，将集资额凑整百'%(
+                                order['nickname'], money)
+                        if float(wdsInfo['currMoney']) % 1000 == 0:
+                            qpzExist = True
+                            logqpz = '%s 集资了%.2f元，触发了彩蛋【中强迫症】，将集资额凑整千'%(
+                                order['nickname'], money)
+                        if float(wdsInfo['currMoney']) % 10000 == 0:
+                            qpzExist = True
+                            logqpz = '%s 集资了%.2f元，触发了彩蛋【大强迫症】，将集资额凑整万'%(
+                                order['nickname'], money)
+                        # if qpzExist and money < 34.999:
+                        #     utils.SendGroupsMsg(qqbot, self.QQGroups, logqpz.strip())
+                        #     qpzExist = False
+
+
+                    # 前面是所有金额都触发
+                    if money < self.postMoney:
+                        continue
+
+                    self.alertLastTime = time.time() #更新警告时间
+                    self.alertHistory = []
+
+                    # 播报
+                    log = '感谢“%s”在%s中，集资【%s元】，给爸爸比心(｡･ω･｡)ﾉ♡\n'%(order['nickname'],
+                        wdsInfo['topic'], order['backer_money'])
+                    rank = self.wds.getRank(self.wds_id, order['nickname'])
+                    if rank:
+                        log += '“%s”已累计集资%s元，排名第%d名\n'%(order['nickname'], 
+                            rank['backer_money'], rank['rank'])
+                    log += '%d元一棒，今日目前棒数%d棒\n'%(int(self.countMoney),
+                        self.wds.flags['baseflag']['count'])
+                    if self.wds_link:
+                        log += '集资链接：%s\n'%(self.wds_link)
+
+                    # 统计
+                    # log += '\n已筹%s元（%s人），目标：%s元'%(wdsInfo['currMoney'],
+                    #     wdsInfo['num_people'], wdsInfo['targetMoney'])
+                    log += '已筹：%s元，目标：%s元\n'%(wdsInfo['currMoney'],
+                        wdsInfo['targetMoney'])
+
+                    if self.cdEnable:
+                        cdTime = ISOString2Time(self.deadline) - time.time()#(float(order['ctime']))
+                        cdHours = int(cdTime//3600)
+                        cdMinutes = int((cdTime%3600)//60)
+                        cdSeconds = int(cdTime%60)
+                        if cdTime < 0 or cdHours > 24:
+                            log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
+                            pass
+                        elif cdHours > 0:
+                            log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
+                        elif cdMinutes >= 0:
+                            log += '距本次众筹结束还剩【不到 %d分钟】\n'%(cdMinutes+1)
+                        # elif cdSeconds > 0:
+                        #     log += '距本次众筹结束还剩 %d秒\n'%(cdSeconds)
+
+                    # pk播报
+                    if self.pkEnable:
+                        our_money = float(wdsInfo['currMoney'])
+                        # our_people = int(wdsInfo['num_people'])
+                        pk_money = float(wdsInfo_pk['currMoney'])
+                        # pk_people = int(wdsInfo_pk['num_people'])
+                        log += '【我方】已筹 %.2f元\n'%(our_money)
+                        log += '【对方】已筹 %.2f元\n'%(pk_money)
+                        log += '对比系数为 1:%.1f'%(self.pkFactor)
+                        if our_money > pk_money*self.pkFactor:
+                            log += '目前领先：%.2f元\n'%(our_money - pk_money*self.pkFactor)
+                        else:
+                            log += '目前落后：%.2f元\n'%(pk_money*self.pkFactor - our_money)
+
+                    # 文字flag
+                    log += flagtxt + '\n'
+                    utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+
+                    if self.eggEnable:
+                        if eggExist:
                             utils.SendGroupsMsg(qqbot, self.QQGroups, logEgg.strip())
-                            eggExist = False
+                        if qpzExist:
+                            utils.SendGroupsMsg(qqbot, self.QQGroups, logqpz.strip())
 
-                    qpzExist = False
-                    if float(wdsInfo['currMoney']) % 100 == 0:
-                        qpzExist = True
-                        logqpz = '%s 集资了%.2f元，触发了彩蛋【小强迫症】，将集资额凑整百'%(
-                            order['nickname'], money)
-                    if float(wdsInfo['currMoney']) % 1000 == 0:
-                        qpzExist = True
-                        logqpz = '%s 集资了%.2f元，触发了彩蛋【中强迫症】，将集资额凑整千'%(
-                            order['nickname'], money)
-                    if float(wdsInfo['currMoney']) % 10000 == 0:
-                        qpzExist = True
-                        logqpz = '%s 集资了%.2f元，触发了彩蛋【大强迫症】，将集资额凑整万'%(
-                            order['nickname'], money)
-                    # if qpzExist and money < 34.999:
-                    #     utils.SendGroupsMsg(qqbot, self.QQGroups, logqpz.strip())
-                    #     qpzExist = False
+                    # flag
+                    # for name in self.wds.flags:
+                    #     if name == 'baseflag':
+                    #         continue
+                    #     flag = self.wds.flags[name]
+                    #     log = 'flag：%s，%.2f元一棒，进度：%d/%d'%(
+                    #         name,flag['level'],flag['count'],flag['target'])
+                    #     if money >= flag['level']:
+                    #         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
 
-
-                # 前面是所有金额都触发
-                if money < self.postMoney:
-                    continue
-
-                self.alertLastTime = time.time() #更新警告时间
-                self.alertHistory = []
-
-                # 播报
-                log = '感谢“%s”在%s中，集资【%s】元，给爸爸比心(｡･ω･｡)ﾉ♡\n'%(order['nickname'],
-                    wdsInfo['topic'], order['backer_money'])
-                log += '%d元一棒，今日目前棒数%d棒\n'%(int(self.countMoney),
-                    self.wds.flags['baseflag']['count'])
-                if self.wds_link:
-                    log += '集资链接：%s\n'%(self.wds_link)
-
-                # 统计
-                # log += '\n已筹%s元（%s人），目标：%s元'%(wdsInfo['currMoney'],
-                #     wdsInfo['num_people'], wdsInfo['targetMoney'])
-                log += '已筹：%s元，目标：%s元\n'%(wdsInfo['currMoney'],
-                    wdsInfo['targetMoney'])
-
-                if self.cdEnable:
-                    cdTime = ISOString2Time(self.deadline) - time.time()#(float(order['ctime']))
-                    cdHours = int(cdTime//3600)
-                    cdMinutes = int((cdTime%3600)//60)
-                    cdSeconds = int(cdTime%60)
-                    if cdTime < 0 or cdHours > 24:
-                        log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
-                        pass
-                    elif cdHours > 0:
-                        log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
-                    elif cdMinutes >= 0:
-                        log += '距本次众筹结束还剩【不到 %d分钟】\n'%(cdMinutes+1)
-                    # elif cdSeconds > 0:
-                    #     log += '距本次众筹结束还剩 %d秒\n'%(cdSeconds)
-
-                # pk播报
-                if self.pkEnable:
-                    our_money = float(wdsInfo['currMoney'])
-                    # our_people = int(wdsInfo['num_people'])
-                    pk_money = float(wdsInfo_pk['currMoney'])
-                    # pk_people = int(wdsInfo_pk['num_people'])
-                    log += '【我方】已筹 %.2f元\n'%(our_money)
-                    log += '【对方】已筹 %.2f元\n'%(pk_money)
-                    log += '对比系数为 1:%.1f'%(self.pkFactor)
-                    if our_money > pk_money*self.pkFactor:
-                        log += '目前领先：%.2f元\n'%(our_money - pk_money*self.pkFactor)
-                    else:
-                        log += '目前落后：%.2f元\n'%(pk_money*self.pkFactor - our_money)
-
-                # 文字flag
-                log += flagtxt + '\n'
-                utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
-
-                if self.eggEnable:
-                    if eggExist:
-                        utils.SendGroupsMsg(qqbot, self.QQGroups, logEgg.strip())
-                    if qpzExist:
-                        utils.SendGroupsMsg(qqbot, self.QQGroups, logqpz.strip())
-
-                # flag
-                # for name in self.wds.flags:
-                #     if name == 'baseflag':
-                #         continue
-                #     flag = self.wds.flags[name]
-                #     log = 'flag：%s，%.2f元一棒，进度：%d/%d'%(
-                #         name.decode('gb18030'),flag['level'],flag['count'],flag['target'])
-                #     if money >= flag['level']:
-                #         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
-
-                # names = list(self.wds.flags.keys())
-                # for name in names:
-                #     flag = self.wds.flags[name]
-                #     if flag['finish'] == 1:
-                #         log = 'flag【%s】已完成：%.2f元一棒，完成度：%d/%d'%(
-                #             name.decode('gb18030'),flag['level'],flag['count'],flag['target'])
-                #         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
-                #         self.wds.flags.pop(name)
-                time.sleep(1)
+                    # names = list(self.wds.flags.keys())
+                    # for name in names:
+                    #     flag = self.wds.flags[name]
+                    #     if flag['finish'] == 1:
+                    #         log = 'flag【%s】已完成：%.2f元一棒，完成度：%d/%d'%(
+                    #             name,flag['level'],flag['count'],flag['target'])
+                    #         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+                    #         self.wds.flags.pop(name)
+                    time.sleep(1)
+                except Exception as e:
+                    logging.exception(e)
+                    utils.error('处理订单出错！\n', e)
             self.wds.saveStatus()
 
 
@@ -323,6 +356,7 @@ class MDMonitor(object):
             print('本次摩点众筹已结束，按任意键退出监控程序。')
             os.system('pause')
             killmyself()
+            time.sleep(10)
 
 
     def run(self):
@@ -346,9 +380,8 @@ class MDMonitor(object):
         self.scheduler.add_job(self.zeroClockEvent, 'cron', hour=0, id='zeroEvent', 
             misfire_grace_time=300, coalesce=True)
 
-        if self.printRankingEnable:
-            # 每日9-24点整点播报排行榜
-            self.scheduler.add_job(self.postRankingList, 'cron', hour='9-23,0', id='postrank', 
+        if self.rankingEnable:
+            self.scheduler.add_job(self.postRankingList, 'cron', hour=self.rankingHour, id='postrank', 
                 misfire_grace_time=60, coalesce=True)
 
         self.scheduler.start()

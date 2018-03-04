@@ -177,9 +177,25 @@ class WDS(object):
         return rankList
 
 
+    def getRank(self, pro_id, nickname):
+        rankinfo = []
+        page = 1
+        while True:
+            res = self.getRankingList(pro_id, _type=1, page=page)
+            if res:
+                find = list(filter(lambda x:x['nickname'] == nickname, res))
+                if find:
+                    rankinfo = find[0]
+                    break
+            else:
+                break
+            page += 1
+        return rankinfo
+
 
 ######################### 其他功能 ##########################
     def flagCounters(self, money):
+        self.flags['baseflag']['sum'] += money
         for f in self.flags:
             flag = self.flags[f]
             flag['count'] += math.floor(money/flag['level'])
@@ -247,21 +263,15 @@ class WDS(object):
     def loadStatus(self):
         path = os.path.join(currdir, 'config', 'modian_data.json')
         params = loadJson(path)
+        self.data = params
         self.wdsLastTime = float(params['ctime'])
-        flag = {}
-        flag['level'] = params['baseflag']['level']
-        flag['count'] = params['baseflag']['count']
-        flag['date'] = params['baseflag']['date']
-        if flag['date'] != getISODateOnly():
-            flag['count'] = 0
-            flag['date'] = getISODateOnly()
-        self.flags['baseflag'] = flag
+        self.flags['baseflag'] = params['baseflag']
         self.todayLog = params['todayLog']
 
 
     def saveStatus(self):
         path = os.path.join(currdir, 'config', 'modian_data.json')
-        params = loadJson(path)
+        params = self.data
         params['ctime'] = str(self.wdsLastTime)
         params['baseflag'] = self.flags['baseflag']
         params['todayLog'] = self.todayLog
@@ -298,7 +308,10 @@ class Egg(object):
 
 if __name__ == "__main__":
     wds = WDS()
-    res = wds.getProjectDetail(10660)
+    # res = wds.getProjectDetail(10660)
+    # print(res)
+    import pdb
+    pdb.set_trace()
+    # res = wds.getRankingList(11731, _type=1, page=1)
+    res = wds.getRank(11731, '123')
     print(res)
-    re = wds.getOrders(10660, page=1)
-    print(re)
