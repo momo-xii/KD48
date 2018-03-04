@@ -406,10 +406,15 @@ def ReplyHandler(msg):
         if msgs[0] == '更新flag':
             txt = msg.lstrip('更新flag').strip()
             saveJson(txt, monitor.flagtextPath)
-            result = '成功更新flag内容，回复【查看flag】查看最新flag'
+            if txt:
+                result = '成功更新flag内容，回复【查看flag】查看最新flag'
+            else:
+                result = '已清空flag内容'
 
         if msgs[0] == '查看flag':
             result = loadJson(monitor.flagtextPath)
+            if not result:
+                result = 'flag内容为空'
 
     except Exception as e:
         logging.exception(e)
