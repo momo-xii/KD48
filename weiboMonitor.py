@@ -53,6 +53,8 @@ groupCmdAuthority = {"超话数据": {'level': 1, 'lastTime': {}},
                      "微博故事": {'level': 1, 'lastTime': {}},
                      "添加微博故事监控": {'level': 1, 'lastTime': {}},
                      "移除微博故事监控": {'level': 1, 'lastTime': {}},
+                     "登录com": {'level': 1, 'lastTime': {}},
+                     "登录mcn": {'level': 1, 'lastTime': {}},
                     }
 
 def ReplyHandler(msg):
@@ -93,6 +95,14 @@ def ReplyHandler(msg):
         if msg == "移除微博故事监控":
             scheduler.remove_job('story')
             result = 'checkStory: job story removed.'
+
+        if msg == "登录com":
+            weibo.login_com()
+            result = "重新登录 weibo.com"
+
+        if msg == "登录mcn":
+            weibo.login_com()
+            result = "重新登录 m.weibo.cn"
         
     except Exception as e:
         logging.exception(e)
@@ -210,8 +220,8 @@ def checkStory():
         if result['msg'] in errorsList:
             return
         utils.SendPrivatesMsg(qqbot, adminQQ, 'checkStory: ' + result['msg'])
-        # scheduler.remove_job('story')
-        # utils.SendPrivatesMsg(qqbot, adminQQ, 'checkStory: job story removed.')
+        scheduler.remove_job('story')
+        utils.SendPrivatesMsg(qqbot, adminQQ, 'checkStory: job story removed.')
 
 
 def printStoryInfo(weibo_id=''):

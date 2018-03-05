@@ -6,25 +6,30 @@ import json
 import logging
 from datetime import datetime
 import urllib.request as request
-import urllib.parse as urlparse
+import urllib.parse as parse
 from html.parser import HTMLParser
 import login_weibocom
+import login_mweibocn
 from hashlib import md5
-
-from config import weibo_ID
-gsid = weibo_ID.gsid
-s = weibo_ID.s
-gsid2 = weibo_ID.gsid2
-s2 = weibo_ID.s2
 
 class Weibo(object):
     def __init__(self, username, password):
         self.username = username
         self.password = password
         self.ss = requests.Session()
-        loginData = login_weibocom.login(username, password)
+        self.login_com()
+        self.login_mcn()
+
+    def login_com(self):
+        loginData = login_weibocom.login(self.username, self.password)
         self.weibocomSS = loginData['session']
         self.uid = loginData['uid']
+
+    def login_mcn(self):
+        loginDataM = login_mweibocn.login(self.username, self.password)
+        self.mweibocnSS = loginDataM['session']
+        # self.uid = loginData['uid']
+        self.gsid = self.mweibocnSS.cookies['SUB']
 
     def getSuperIDfromName(self, name):
         m = md5()
@@ -70,10 +75,10 @@ class Weibo(object):
 
     def getStoryList(self):
         url = ( "https://api.weibo.cn/2/stories/home_list?networktype=wifi&moduleID=715"
-                "&c=android&i=8477407&s={s}&ft=0&wm=14010_0013"
+                "&c=android&i=8477407&s=cfa66be2&ft=0&wm=14010_0013"
                 "&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc.&v_f=2"
                 "&gsid={g}"
-                "&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1").format(s=s, g=gsid)
+                "&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1").format(g=self.gsid)
 
         result = {}
         result['status'] = 1
@@ -113,9 +118,9 @@ class Weibo(object):
 
     def getStory(self, story_id='3053424305_0'):
         url = ("https://api.weibo.cn/2/stories/details?networktype=wifi&extprops=%7B%7D&moduleID=715"
-                "&c=android&i=8477407&s={s}&ft=0&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc."
+                "&c=android&i=8477407&s=cfa66be2&ft=0&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc."
                 "&v_f=2&gsid={g}"
-                "&lang=zh_CN&skin=default&type=0&oldwm=14010_0013&sflag=1&story_ids=").format(s=s, g=gsid)
+                "&lang=zh_CN&skin=default&type=0&oldwm=14010_0013&sflag=1&story_ids=").format(g=self.gsid)
 
         if not story_id.endswith('_0'):
             story_id += '_0'
@@ -202,11 +207,11 @@ class Weibo(object):
 
     def postStoryComment(self, comment, segment_id, story_id):
         url = ( "https://api.weibo.cn/2/stories/segment_comment_create?networktype=wifi&moduleID=715"
-                "&wb_version=3512&c=android&i=8477407&s={s}&ft=0"
+                "&wb_version=3512&c=android&i=8477407&s=7db79748&ft=0"
                 "&ua=smartisan-SM919__weibo__7.11.3__android__android6.0.1&wm=14010_0013"
                 "&aid=01AmyEY7V_Eaw1K6wS5z_5eLcz1fC23tLdoBt8M46jLhYfu0w.&v_f=2&v_p=55&from=107B395010"
                 "&gsid={g}"
-                "&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1").format(s=s2, g=gsid2)
+                "&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1").format(g=self.gsid)
         
         boundary = '------------1512801798608'
         head = {}
@@ -389,7 +394,7 @@ Content-Transfer-Encoding: 8bit
         stat['time'] = str(datetime.now()).split('.')[0]
         stat['data'] = j['data']
         stat['msg'] = j['msg']
-        if int(j['code']) == 100000:
+        if int(j['code']) == 100000 and 'alert_title' in j['data']:
             stat['check_count'] = int(re.findall(r"第(\d+)名", j['data']['alert_title'])[0])
             stat['status'] = 1
         else:
@@ -401,10 +406,10 @@ Content-Transfer-Encoding: 8bit
     def checkInMobile(self, name):
         chaohuaID = self.getSuperIDfromName(name)
         url = ('http://mapi.weibo.com/2/page/button?request_url=http%3A%2F%2Fi.huati.weibo.com%2Fmobile%2Fsuper%2Factive_checkin%3F'
-                'pageid%3D{id}&networktype=wifi&c=android&i=8477407&s={s}&ft=0'
+                'pageid%3D{id}&networktype=wifi&c=android&i=8477407&s=cfa66be2&ft=0'
                 '&wm=14010_0013&aid=01AmyEY7V_Eaw1K6wS5z_5eLeIkcMEoeJUn37whx-R8tag9nc.&v_f=2&v_p=54'
                 '&gsid={g}'
-                '&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1').format(s=s, g=gsid, id=chaohuaID)
+                '&lang=zh_CN&skin=default&oldwm=14010_0013&sflag=1').format(g=self.gsid, id=chaohuaID)
 
         data = {}
         data['status'] = 0
@@ -428,8 +433,8 @@ Content-Transfer-Encoding: 8bit
             scheme = j['scheme']
             url = scheme.split('url=')[-1]
             url = request.unquote(url)
-            query = urlparse.urlparse(url).query
-            querydict = urlparse.parse_qs(query)
+            query = parse.urlparse(url).query
+            querydict = parse.parse_qs(query)
             data['check_count'] = int(querydict['check_count'][0])
             data['check_days'] = int(querydict['check_int'][0])
             data['add_exp'] = int(querydict['int_ins'][0])

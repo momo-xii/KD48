@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-'''
-Required
-- requests (必须)
-- rsa (必须)
-- pillow (可选)
-Info
-- author : "xchaoinfo"
-- email  : "xchaoinfo@qq.com"
-- date   : "2016.3.7"
-'''
 import time
 import base64
 import rsa
@@ -17,20 +7,16 @@ import binascii
 import requests
 import re
 import random
-try:
-    from PIL import Image
-except:
-    pass
-try:
-    from urllib.parse import quote_plus
-except:
-    from urllib import quote_plus
+from urllib.parse import quote_plus, urlparse, parse_qs, unquote
+# try:
+#     from PIL import Image
+# except:
+#     pass
 
 '''
 如果没有开启登录保护，不用输入验证码就可以登录
 如果开启登录保护，需要输入验证码
 '''
-
 
 # 构造 Request headers
 agent = 'Mozilla/5.0 (Windows NT 6.3; WOW64; rv:41.0) Gecko/20100101 Firefox/41.0'
@@ -46,10 +32,6 @@ try:
     session.get(index_url, headers=headers, timeout=2)
 except:
     session.get(index_url, headers=headers)
-try:
-    input = raw_input
-except:
-    pass
 
 
 def get_su(username):
@@ -66,16 +48,11 @@ def get_su(username):
 # 预登陆获得 servertime, nonce, pubkey, rsakv
 def get_server_data(su):
     pre_url = "http://login.sina.com.cn/sso/prelogin.php?entry=weibo&callback=sinaSSOController.preloginCallBack&su="
-    pre_url = pre_url + su + "&rsakt=mod&checkpin=1&client=ssologin.js(v1.4.18)&_="
+    pre_url = pre_url + su + "&rsakt=mod&checkpin=1&client=ssologin.js(v1.4.19)&_="
     pre_url = pre_url + str(int(time.time() * 1000))
     pre_data_res = session.get(pre_url, headers=headers)
-
     sever_data = eval(pre_data_res.content.decode("utf-8").replace("sinaSSOController.preloginCallBack", ''))
-
     return sever_data
-
-
-# print(sever_data)
 
 
 def get_password(password, servertime, nonce, pubkey):
@@ -89,6 +66,7 @@ def get_password(password, servertime, nonce, pubkey):
 
 
 def get_cha(pcid):
+    # 获得验证码
     cha_url = "http://login.sina.com.cn/cgi/pin.php?r="
     cha_url = cha_url + str(int(random.random() * 100000000)) + "&s=0&p="
     cha_url = cha_url + pcid
@@ -96,12 +74,24 @@ def get_cha(pcid):
     with open("cha.jpg", 'wb') as f:
         f.write(cha_page.content)
         f.close()
-    try:
-        im = Image.open("cha.jpg")
-        im.show()
-        im.close()
-    except:
-        print(u"请到当前目录下，找到验证码后输入")
+    # try:
+    #     im = Image.open("cha.jpg")
+    #     im.show()
+    #     im.close()
+    # except:
+    #     print("请到当前目录下，找到验证码后输入")
+
+
+def loginM(data, showpin, pcid):
+    login_url = 'http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.19)'
+    if showpin != 0:
+        get_cha(pcid)
+        data['door'] = input("请输入验证码（同目录下图片cha.jpg）：")
+    login_page = session.post(login_url, data=data, headers=headers)
+    login_loop = (login_page.content.decode("GBK"))
+    pa = r'location\.replace\([\'"](.*?)[\'"]\)'
+    loop_url = re.findall(pa, login_loop)[0]
+    return loop_url
 
 
 def login(username, password):
@@ -112,6 +102,7 @@ def login(username, password):
     nonce = sever_data['nonce']
     rsakv = sever_data["rsakv"]
     pubkey = sever_data["pubkey"]
+    pcid = sever_data["pcid"]
     showpin = sever_data["showpin"]
     password_secret = get_password(password, servertime, nonce, pubkey)
 
@@ -123,6 +114,7 @@ def login(username, password):
         'useticket': '1',
         'pagerefer': "http://login.sina.com.cn/sso/logout.php?entry=miniblog&r=http%3A%2F%2Fweibo.com%2Flogout.php%3Fbackurl",
         'vsnf': '1',
+        'pcid': pcid,
         'su': su,
         'service': 'miniblog',
         'servertime': servertime,
@@ -136,39 +128,67 @@ def login(username, password):
         'url': 'http://weibo.com/ajaxlogin.php?framelogin=1&callback=parent.sinaSSOController.feedBackUrlCallBack',
         'returntype': 'META'
         }
-    login_url = 'http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)'
-    if showpin == 0:
-        login_page = session.post(login_url, data=postdata, headers=headers)
+    # loop_url: 包含登录是否成功的信息
+    loop_url = loginM(postdata, showpin, pcid)
+    query = parse_qs(urlparse(unquote(loop_url,encoding='gbk')).query)
+    retcode = query['retcode'][0]
+
+    # TODO
+    # if retcode == '4049':
+    #     # 为了您的帐号安全，请输入验证码
+    #     reason = query['reason'][0]
+    #     print(retcode+':', reason)
+    #     showpin = 1
+    #     loop_url = loginM(postdata, showpin, pcid)
+    #     crossdomain2 = session.get(loop_url, headers=headers)
+    #     # query = parse_qs(urlparse(unquote(loop_url,encoding='gbk')).query)
+    #     # retcode = query['retcode'][0]
+
+    if retcode == '0':
+        # 登录成功
+        pass
     else:
-        pcid = sever_data["pcid"]
-        get_cha(pcid)
-        postdata['door'] = input(u"请输入验证码")
-        login_page = session.post(login_url, data=postdata, headers=headers)
-    login_loop = (login_page.content.decode("GBK"))
-    # print(login_loop)
-    pa = r'location\.replace\([\'"](.*?)[\'"]\)'
-    loop_url = re.findall(pa, login_loop)[0]
-    # print(loop_url)
-    # 此出还可以加上一个是否登录成功的判断，下次改进的时候写上
-    login_index = session.get(loop_url, headers=headers)
-    uuid = login_index.text
-    uuid_pa = r'"uniqueid":"(.*?)"'
-    uuid_res = re.findall(uuid_pa, uuid, re.S)[0]
-    web_weibo_url = "http://weibo.com/%s/profile?topnav=1&wvr=6&is_all=1" % uuid_res
-    weibo_page = session.get(web_weibo_url, headers=headers)
-    weibo_pa = r'<title>(.*?)</title>'
-    # print(weibo_page.content.decode("utf-8"))
-    userID = re.findall(weibo_pa, weibo_page.content.decode("utf-8", 'ignore'), re.S)[0]
-    # print(u"欢迎你 %s, 你在正在使用 xchaoinfo 写的模拟登录微博" % userID)
-    # import pdb
-    # pdb.set_trace()
+        reason = query['reason'][0]
+        print(retcode+':', reason)
+        if retcode == '4049':
+            # 为了您的帐号安全，请输入验证码
+            showpin = 1
+            # loop_url = loginM(postdata, showpin, pcid)
+        elif retcode == '2070':
+            pass
+            # 输入的验证码不正确
+            # while retcode != '0':
+            #     print(retcode+':', reason)
+            #     print('验证码已刷新')
+            #     loop_url = loginM(postdata, showpin, pcid)
+            #     query = parse_qs(urlparse(unquote(loop_url,encoding='gbk')).query)
+            #     retcode = query['retcode'][0]
+        else:
+            pass
+
     result = {}
-    result['session'] = session
-    result['uid'] = uuid_res
+    result['session'] = None
+    result['uid'] = None
+    try:
+        login_index = session.get(loop_url, headers=headers)
+        uuid = login_index.text
+        uuid_pa = r'"uniqueid":"(.*?)"'
+        uuid_res = re.findall(uuid_pa, uuid, re.S)[0]
+        web_weibo_url = "http://weibo.com/%s/profile?topnav=1&wvr=6&is_all=1" % uuid_res
+        weibo_page = session.get(web_weibo_url, headers=headers)
+        weibo_pa = r'<title>(.*?)</title>'
+        # print(weibo_page.content.decode("utf-8"))
+        userID = re.findall(weibo_pa, weibo_page.content.decode("utf-8", 'ignore'), re.S)[0]
+        result['session'] = session
+        result['uid'] = uuid_res
+        result['status'] = 1
+    except Exception as e:
+        result['status'] = -1
+        # print('登录微博失败！')
     return result
 
 
 if __name__ == "__main__":
-    username = "xxx"
-    password = "xxx"
+    username = ""
+    password = ""
     login(username, password)
