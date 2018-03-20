@@ -3,13 +3,16 @@ import os
 import sys
 import time
 import math
+import json
 import logging
+import threading
+
+# sys.path.append('./lib')
 import mylog
 mylog.setLog('modianMonitor')
-
-from ModianAPI import *
+from ModianAPI import WDS, Egg, Card, CardDB
 from utility import *
-from cqsdk import CQBot, CQAt, RcvdPrivateMessage, RcvdGroupMessage, \
+from cqsdk import CQBot, CQAt, CQImage, RcvdPrivateMessage, RcvdGroupMessage, \
     GroupMemberIncrease, GroupMemberDecrease
 import utils
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -29,6 +32,7 @@ class MDMonitor(object):
     def __init__(self, params):
         self.debugQQ = params['debugQQ']
         self.QQGroups = params['QQGroups']
+        self.QQGroups_lite = params['QQGroups_lite']
         self.wds_id = str(params['wds_id'])
         self.wds_link = params['wds_link']
         self.postMoney = params['postMoney'] - 1e-3
@@ -37,6 +41,7 @@ class MDMonitor(object):
         # 开关
         self.eggEnable = params['eggEnable']
         self.postSummaryEnable = params['postSummaryEnable']
+        self.cardEnable = params['cardEnable']
 
         # 排名播报
         self.rankingEnable = params['ranking']['enable']
@@ -44,6 +49,10 @@ class MDMonitor(object):
         self.rankingTop = params['ranking']['top']
         if self.rankingTop not in [16,32]:
             self.rankingTop = 32
+
+        # 提醒
+        self.remindEnable = params['remind']['enable']
+        self.remindHour = params['remind']['hour']
 
         # 定时提醒
         self.alertEnable = params['alert']['enable']
@@ -73,6 +82,8 @@ class MDMonitor(object):
     def initWDS(self):
         self.wds = WDS()
         self.egg = Egg()
+        self.card = Card()
+        self.cardDB = CardDB()
 
         wdsInfo = self.wds.getProjectDetail(self.wds_id)
         self.end_time = wdsInfo['end_time']
@@ -141,17 +152,37 @@ class MDMonitor(object):
                 utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
 
 
+    def postCurrDetail(self):
+        wdsInfo = self.wds.getProjectDetail(self.wds_id)
+        log = '请爸爸大佬们多多支持小莫寒，谢谢！\n'
+        log += '集资链接：%s\n'%(self.wds_link)
+        log += '已筹：%s元\n'%(wdsInfo['currMoney'])
+        flagtxt = loadJson(self.flagtextPath)
+        log += flagtxt + '\n'
+        utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+        utils.SendGroupsMsg(qqbot, self.QQGroups_lite, log.strip())
+
+
     def postTodaySummary(self):
         wdsInfo = self.wds.getProjectDetail(self.wds_id)
         sum1 = float(wdsInfo['currMoney']) - self.wds.todayLog['moneyBegin']
         sum2 = self.wds.todayLog['sum']
         sumMoney = max(sum1, sum2)
         log = '今日集资总结：\n'
-        log += '今日集资额：%.2f元\n'%(sumMoney)
-        log += '今日接棒数：%d棒（%s元/棒）'%(self.wds.todayLog['count'], self.countMoney)
+        log += '集资额：%.2f元\n'%(sumMoney)
+        log += '接棒数：%d棒（%s元/棒）\n'%(self.wds.todayLog['count'], self.countMoney)
+        # log += '集资人数：%s人\n'%(len(self.wds.todayLog['person']))
+        # log += '集资人次：%s人次\n'%(self.wds.todayLog['orderCnt'])
+        # self.wds.todayLog['person'].sort(key=lambda x:(x['money']))
+        # log += '今日集资前5名：\n'
+        # for i in range(5):
+        #     log += '%d、%s，集资额：%.2f元\n'%(i+1, self.wds.todayLog['person'][i]['nickname'],
+        #         self.wds.todayLog['person'][i]['money'])
         if self.postSummaryEnable:
             utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
         self.wds.todayLog['moneyBegin'] = float(wdsInfo['currMoney'])
+        self.wds.todayLog['orderCnt'] = 0
+        self.wds.todayLog['person'] = []
         self.wds.saveStatus()
 
 
@@ -178,6 +209,44 @@ class MDMonitor(object):
             utils.error('loadNewFlag: ', e)
 
 
+    # 抽卡
+    def drawCard(self, money, order):
+        nickname = order['nickname']
+        resCards = self.card.drawByMoney(money)
+        if resCards == []:
+            return
+        log = ''
+        ssr = list(filter(lambda x:x[0] == 'SSR', resCards))
+        if ssr:
+            log += '恭喜“%s”抽中神级【SSR】卡牌：\n'%(nickname)
+            imgFN = ssr[0][1].lstrip('../data/image/')
+            log += '{cq}'.format(cq=CQImage(imgFN)) + '\n'
+        log += '“%s”此次抽卡结果为：\n'%(nickname)
+        for i in range(len(resCards)):
+            log += resCards[i][0] + '   '
+            log += '\n' if i%5==4 else ''
+        else:
+            if len(resCards)%5 != 0:
+                log += '\n'
+        log += '抽到的卡牌是：\n'
+        imgFN = self.card.jointImgs(resCards)
+        log += '{cq}'.format(cq=CQImage(imgFN))
+        utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
+        # 记录数据
+        card_data = self.cardDB.select(nickname)
+        if card_data == []:
+            cardCnt = self.card.counter(resCards)
+            orderInfo = []
+            orderInfo.append(order)
+            self.cardDB.insert(nickname, json.dumps(dict(cardCnt)), json.dumps(orderInfo))
+        else:
+            preCardCnt = json.loads(card_data[0][1])
+            preOrderInfo = json.loads(card_data[0][2])
+            cardCnt = self.card.counter(resCards, preCnt=preCardCnt)
+            preOrderInfo.append(order)
+            self.cardDB.update(nickname, json.dumps(dict(cardCnt)), json.dumps(preOrderInfo))
+
+
     # 实时集资监控
     def orderMonitor(self):
         if self.wdsIsEnd:
@@ -199,6 +268,7 @@ class MDMonitor(object):
                 try:
                     money = float(order['backer_money'])
                     self.wds.flagCounters(money)
+                    self.wds.personCounters(order)
 
                     # 彩蛋 未检查
                     if self.eggEnable:
@@ -264,7 +334,7 @@ class MDMonitor(object):
                         cdHours = int(cdTime//3600)
                         cdMinutes = int((cdTime%3600)//60)
                         cdSeconds = int(cdTime%60)
-                        if cdTime < 0 or cdHours > 24:
+                        if (cdTime < 0 or cdHours > 24) and cdHours <= 48:
                             log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
                             pass
                         elif cdHours > 0:
@@ -297,6 +367,17 @@ class MDMonitor(object):
                             utils.SendGroupsMsg(qqbot, self.QQGroups, logEgg.strip())
                         if qpzExist:
                             utils.SendGroupsMsg(qqbot, self.QQGroups, logqpz.strip())
+
+                    # 抽卡
+                    if self.cardEnable:
+                        try:
+                            drawcard_thread = threading.Thread(
+                                target=self.drawCard, args=(money, order), daemon=True)
+                            drawcard_thread.start()
+                        except Exception as e:
+                            # SendDebugMsgs(self.debugQQ, '抽卡错误！')
+                            utils.SendGroupsMsg(qqbot, self.QQGroups, '抽卡错误！')
+                            logging.exception(e)
 
                     # flag
                     # for name in self.wds.flags:
@@ -377,6 +458,10 @@ class MDMonitor(object):
         # self.scheduler.add_job(self.loadNewFlag, 'interval', seconds=10, id='loadNewFlag',
         #     coalesce=True, max_instances=1)
 
+        if self.remindEnable:
+            self.scheduler.add_job(self.postCurrDetail, 'cron', hour=self.remindHour, id='postCurrDetail', 
+                misfire_grace_time=300, coalesce=True)
+
         self.scheduler.add_job(self.zeroClockEvent, 'cron', hour=0, id='zeroEvent', 
             misfire_grace_time=300, coalesce=True)
 
@@ -396,8 +481,10 @@ group_admins = modian_admins.admins['Group']
 private_admins = modian_admins.admins['Private']
 
 # level: 0-forbid, 1-admin, 2-all
-groupCmdAuthority = {#"排行榜": {'level': 1, 'lastTime': {}}, 
-           }
+groupCmdAuthority = {
+    "查看抽卡记录": {'level': 0, 'lastTime': {}}, 
+    "模拟抽卡": {'level': 0, 'lastTime': {}}, 
+}
 
 def ReplyHandler(msg):
     result = ''
@@ -415,6 +502,30 @@ def ReplyHandler(msg):
             result = loadJson(monitor.flagtextPath)
             if not result:
                 result = 'flag内容为空'
+
+        if msgs[0] == '查看抽卡记录':
+            if len(msgs) == 2:
+                nickname = msgs[1]
+                card_data = monitor.cardDB.select(nickname)
+                if card_data == []:
+                    result = '记录为空'
+                else:
+                    preCardCnt = card_data[0][1]
+                    result = '“%s”的抽卡记录：\n'%nickname
+                    result += preCardCnt[1:-1]
+
+        if msgs[0] == '模拟抽卡':
+            if len(msgs) == 3:
+                nickname = msgs[1]
+                money = float(msgs[2])
+                order = {'nickname':nickname,'pay_time':getISODateAndTime(),'backer_money':money}
+                try:
+                    drawcard_thread = threading.Thread(
+                        target=monitor.drawCard, args=(money, order), daemon=True)
+                    drawcard_thread.start()
+                except Exception as e:
+                    result = '抽卡失败！\n'+str(e)
+                    logging.exception(e)
 
     except Exception as e:
         logging.exception(e)
@@ -438,19 +549,19 @@ def ReplyGroupMsg(message):
             currQQLevel = 2
         if 'all' in group_admins[message.group]:
             currQQLevel = 1
-    if message.text in groupCmdAuthority:
-        level = groupCmdAuthority[message.text]['level']
-        lastTimeDict = groupCmdAuthority[message.text]['lastTime']
+    currCommand = message.text.split()[0]
+    if currCommand in groupCmdAuthority:
+        level = groupCmdAuthority[currCommand]['level']
+        lastTimeDict = groupCmdAuthority[currCommand]['lastTime']
         if message.group not in lastTimeDict:
             lastTimeDict[message.group] = 0
             lastTime = 0
         else:
             lastTime = lastTimeDict[message.group]
         # 命令冷却时间300秒
-        if currQQLevel <= level and time.time() - lastTime >= 300:
+        if currQQLevel <= level and time.time() - lastTime >= 1:
             result = ReplyHandler(message.text)
             lastTimeDict[message.group] = time.time()
-
     if result:
         msg = "{text}\n{qq}".format(text=result, qq=CQAt(message.qq))
         utils.reply(qqbot, message, msg)
