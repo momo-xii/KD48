@@ -154,9 +154,9 @@ class MDMonitor(object):
 
     def postCurrDetail(self):
         wdsInfo = self.wds.getProjectDetail(self.wds_id)
-        log = '请爸爸大佬们多多支持小莫寒，谢谢！\n'
+        log = '请大家多多支持小莫寒，谢谢！\n'
         log += '集资链接：%s\n'%(self.wds_link)
-        log += '已筹：%s元\n'%(wdsInfo['currMoney'])
+        # log += '已筹：%s元\n'%(wdsInfo['currMoney'])
         flagtxt = loadJson(self.flagtextPath)
         log += flagtxt + '\n'
         utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
@@ -171,13 +171,13 @@ class MDMonitor(object):
         log = '今日集资总结：\n'
         log += '集资额：%.2f元\n'%(sumMoney)
         log += '接棒数：%d棒（%s元/棒）\n'%(self.wds.todayLog['count'], self.countMoney)
-        # log += '集资人数：%s人\n'%(len(self.wds.todayLog['person']))
-        # log += '集资人次：%s人次\n'%(self.wds.todayLog['orderCnt'])
-        # self.wds.todayLog['person'].sort(key=lambda x:(x['money']))
-        # log += '今日集资前5名：\n'
-        # for i in range(5):
-        #     log += '%d、%s，集资额：%.2f元\n'%(i+1, self.wds.todayLog['person'][i]['nickname'],
-        #         self.wds.todayLog['person'][i]['money'])
+        log += '集资人数：%s人\n'%(len(self.wds.todayLog['person']))
+        log += '集资人次：%s人次\n'%(self.wds.todayLog['orderCnt'])
+        self.wds.todayLog['person'].sort(key=lambda x:(-x['money']))
+        log += '今日集资前5名：\n'
+        for i in range(5):
+            log += '%d、%s，集资额：%.2f元\n'%(i+1, self.wds.todayLog['person'][i]['nickname'],
+                self.wds.todayLog['person'][i]['money'])
         if self.postSummaryEnable:
             utils.SendGroupsMsg(qqbot, self.QQGroups, log.strip())
         self.wds.todayLog['moneyBegin'] = float(wdsInfo['currMoney'])
@@ -218,8 +218,9 @@ class MDMonitor(object):
         log = ''
         ssr = list(filter(lambda x:x[0] == 'SSR', resCards))
         if ssr:
-            log += '恭喜“%s”抽中神级【SSR】卡牌：\n'%(nickname)
+            log += '恭喜“%s”抽中稀有【SSR】卡牌：\n'%(nickname)
             imgFN = ssr[0][1].lstrip('../data/image/')
+            imgFN = 'cards/SSR-2/'+ os.path.split(imgFN)[-1]
             log += '{cq}'.format(cq=CQImage(imgFN)) + '\n'
         log += '“%s”此次抽卡结果为：\n'%(nickname)
         for i in range(len(resCards)):
@@ -334,15 +335,13 @@ class MDMonitor(object):
                         cdHours = int(cdTime//3600)
                         cdMinutes = int((cdTime%3600)//60)
                         cdSeconds = int(cdTime%60)
-                        if (cdTime < 0 or cdHours > 24) and cdHours <= 48:
-                            log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
-                            pass
-                        elif cdHours > 0:
-                            log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
-                        elif cdMinutes >= 0:
-                            log += '距本次众筹结束还剩【不到 %d分钟】\n'%(cdMinutes+1)
-                        # elif cdSeconds > 0:
-                        #     log += '距本次众筹结束还剩 %d秒\n'%(cdSeconds)
+                        if cdHours < 48:
+                            if cdHours > 0:
+                                log += '距本次众筹结束还剩【不到 %d小时】\n'%(cdHours+1)
+                            elif cdMinutes >= 0:
+                                log += '距本次众筹结束还剩【不到 %d分钟】\n'%(cdMinutes+1)
+                            # elif cdSeconds > 0:
+                            #     log += '距本次众筹结束还剩 %d秒\n'%(cdSeconds)
 
                     # pk播报
                     if self.pkEnable:
@@ -482,8 +481,8 @@ private_admins = modian_admins.admins['Private']
 
 # level: 0-forbid, 1-admin, 2-all
 groupCmdAuthority = {
-    "查看抽卡记录": {'level': 0, 'lastTime': {}}, 
-    "模拟抽卡": {'level': 0, 'lastTime': {}}, 
+    "查询抽卡记录": {'level': 1, 'lastTime': {}}, 
+    "补抽": {'level': 1, 'lastTime': {}}, 
 }
 
 def ReplyHandler(msg):
@@ -503,7 +502,7 @@ def ReplyHandler(msg):
             if not result:
                 result = 'flag内容为空'
 
-        if msgs[0] == '查看抽卡记录':
+        if msgs[0] == '查询抽卡记录':
             if len(msgs) == 2:
                 nickname = msgs[1]
                 card_data = monitor.cardDB.select(nickname)
@@ -514,7 +513,7 @@ def ReplyHandler(msg):
                     result = '“%s”的抽卡记录：\n'%nickname
                     result += preCardCnt[1:-1]
 
-        if msgs[0] == '模拟抽卡':
+        if msgs[0] == '补抽':
             if len(msgs) == 3:
                 nickname = msgs[1]
                 money = float(msgs[2])

@@ -261,10 +261,10 @@ class WDS(object):
 
 class Card(object):
     def __init__(self):
-        self.prob0 = [50,50,0,0]
-        self.prob1 = [52,42,6,0]
-        self.prob2 = [51,41,8,0]
-        self.prob3 = [50,40,10,0]
+        self.prob0 = [50,50,0,0]  #
+        self.prob1 = [52,42,6,0]  #10.7, 33
+        self.prob2 = [51,41,8,0]  #107
+        self.prob3 = [50,40,10,0] #309
 
     def draw(self, mode=1):
         if mode == 1:
@@ -300,14 +300,26 @@ class Card(object):
                 resCards.append(self.draw())
         elif money == 107:
             resCards.append(self.drawByType('SR'))
+            if random.randint(1,1000) <= 3:
+                resCards.append(self.drawByType('SSR'))
+                remainCnt = 8
+                hasSSR = True
+            else:
+                remainCnt = 9
+                hasSSR = False
             cnt = 0
-            while cnt < 9:
+            while cnt < remainCnt:
                 resCards.append(self.draw(mode=2))
                 cnt += 1
                 c = Counter([x[0] for x in resCards])
-                if c['SR'] > 3:
-                    resCards.pop()
-                    cnt -= 1
+                if hasSSR:
+                    if c['SR'] > 2:
+                        resCards.pop()
+                        cnt -= 1
+                else:
+                    if c['SR'] > 3:
+                        resCards.pop()
+                        cnt -= 1
         elif money == 309:
             resCards.append(self.drawByType('SR'))
             if random.randint(1,100) <= 25:
@@ -456,21 +468,29 @@ class Egg(object):
 if __name__ == "__main__":
     # wds = WDS()
     # res = wds.getProjectDetail(10660)
-    # res = wds.getOrders(11731, page=1, debug=False)
+    # res = wds.getOrders(12840, page=1, debug=False)
     # print(res)
     # res = wds.getRankingList(11731, _type=1, page=1)
     # res = wds.getRank(11731, '123')
     # print(res)
+    
     card = Card()
     resCards = card.drawByMoney(309)
-    log = '“XXX”此次抽卡结果为：\n'
+    log = ''
+    ssr = list(filter(lambda x:x[0] == 'SSR', resCards))
+    if ssr:
+        log += '恭喜“%s”抽中神级【SSR】卡牌：\n'%('XXX')
+        imgFN = ssr[0][1].lstrip('../data/image/')
+        imgFN = 'cards/SSR-2/'+ os.path.split(imgFN)[-1]
+        log += imgFN + '\n'
+    log += '“XXX”此次抽卡结果为：\n'
     for i in range(len(resCards)):
         log += resCards[i][0] + '\t'
         log += '\n' if i%5==4 else ''
     else:
         if len(resCards)%5 != 0:
             log += '\n'
-    # log += '抽到的卡牌是：\n'
-    # imgFN = card.jointImgs(resCards)
-    # log += imgFN
+    log += '抽到的卡牌是：\n'
+    imgFN = card.jointImgs(resCards)
+    log += imgFN
     print(log)
