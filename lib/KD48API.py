@@ -31,7 +31,6 @@ os.environ['NO_PROXY'] = '48.cn'
 
 class KD48API(object):
     def __init__(self):
-        self.s = requests.Session()
         self.proxy = {}
         self.timeout = 10
         self.token = '0'
@@ -75,8 +74,8 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
-                                   headers=head)
+            res = requests.post(url, data=json.dumps(data),
+                                   headers=head, proxies=self.proxy)
             j = res.json()
         except Exception as e:
             text = '网络阻塞！获取token失败！'
@@ -118,7 +117,7 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -177,7 +176,7 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -228,7 +227,7 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -271,7 +270,7 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.post(url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -435,7 +434,7 @@ class KD48API(object):
         result['reviewList'] = []
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -538,7 +537,7 @@ class KD48API(object):
         result['liveList'] = {}
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -626,7 +625,7 @@ class KD48API(object):
         result['data'] = {}
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -757,7 +756,7 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -768,14 +767,16 @@ class KD48API(object):
             result['msg'] = text
             return result
         
-        if j['status'] != 200:
-            logging.error(j['message'])
-            result['status'] = -1
+        if j['status'] == 200:
+            result['status'] = 1
+            result['msg'] = '签到成功'
+        elif j['status'] == 1001006: #已签到
+            result['status'] = 0
             result['msg'] = j['message']
-            return result
-
-        result['status'] = 1
-        result['msg'] = '签到成功'
+        else:
+            logging.error(j['message'])
+            result['status'] = j['status']
+            result['msg'] = j['message']
         return result
 
 
@@ -796,7 +797,7 @@ class KD48API(object):
         result['data'] = {}
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -837,7 +838,7 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -848,14 +849,13 @@ class KD48API(object):
             result['msg'] = text
             return result
         
-        if j['status'] != 200:
+        if j['status'] == 200:
+            result['status'] = 1
+            result['msg'] = '成功分享成员直播'
+        else:
             logging.error(j['message'])
-            result['status'] = -1
+            result['status'] = j['status']
             result['msg'] = j['message']
-            return result
-
-        result['status'] = 1
-        result['msg'] = '成功分享成员直播'
         return result
 
 
@@ -876,7 +876,7 @@ class KD48API(object):
         result['data'] = {}
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
@@ -899,7 +899,7 @@ class KD48API(object):
         return result
 
 
-    def praiseWeibo(self, token, resId):
+    def praiseWeibo(self, token, resId, imei=None):
         '''
         点赞口袋中同步的微博
         resId: 微博的id
@@ -908,9 +908,8 @@ class KD48API(object):
         head = self.getHeader()
         head['Host'] = 'pdynamic.48.cn'
         head['token'] = token
-        # n = np.random.randint(10000000, 99999999) 
-        # imei = '8964190'+str(n)
-        # head['IMEI'] = imei
+        if imei:
+            head['IMEI'] = imei
 
         data = {"resId":resId}
 
@@ -919,11 +918,50 @@ class KD48API(object):
         result['msg'] = ''
 
         try:
-            res = self.s.request('POST', url, data=json.dumps(data),
+            res = requests.post(url, data=json.dumps(data),
                 headers=head, proxies=self.proxy, timeout=self.timeout)
             j = res.json()
         except Exception as e:
             text = '点赞微博失败！'
+            logging.error(text)
+            logging.exception(e)
+            result['status'] = -1
+            result['msg'] = text
+            return result
+        
+        if j['status'] == 200:
+            result['data'] = j['content']
+            result['status'] = 1
+            result['msg'] = '成功点赞微博'
+        else:
+            logging.error(j['message'])
+            result['status'] = -1
+            result['msg'] = j['message']
+        return result
+
+
+    def getScheList(self, token, userId, lastTime=0, history=False, limit=20):
+        '''
+        获取行程列表
+        '''
+        url = 'https://pother.48.cn/othersystem/api/trip/v1/list'
+        head = self.getHeader()
+        head['Host'] = 'pother.48.cn'
+        head['token'] = token
+
+        data = {"lastTime":lastTime,"isMore":not history,"groupId":0,"userId":userId,"limit":limit}
+
+        result = {}
+        result['status'] = 1
+        result['msg'] = ''
+        result['data'] = {}
+
+        try:
+            res = requests.post(url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
+            j = res.json()
+        except Exception as e:
+            text = '获取行程列表失败！'
             logging.error(text)
             logging.exception(e)
             result['status'] = -1
@@ -936,8 +974,50 @@ class KD48API(object):
             result['msg'] = j['message']
             return result
 
+        result['data'] = j['content']['data']
         result['status'] = 1
-        result['msg'] = '成功点赞微博'
+        result['msg'] = '成功获取行程列表'
+        return result
+
+
+    def praiseSche(self, token, resId):
+        '''
+        点赞行程
+        resId: 行程的id
+        '''
+        url = 'https://pother.48.cn/othersystem/api/trip/v1/praise'
+        head = self.getHeader()
+        head['Host'] = 'pother.48.cn'
+        head['token'] = token
+        # head['IMEI'] = imei
+
+        data = {"resId":resId}
+
+        result = {}
+        result['status'] = 1
+        result['msg'] = ''
+
+        try:
+            res = requests.post(url, data=json.dumps(data),
+                headers=head, proxies=self.proxy, timeout=self.timeout)
+            j = res.json()
+        except Exception as e:
+            text = '点赞行程失败！'
+            logging.error(text)
+            logging.exception(e)
+            result['status'] = -1
+            result['msg'] = text
+            return result
+        
+        if j['status'] != 200:
+            logging.error(j['message'])
+            result['status'] = -1
+            result['msg'] = j['message']
+            return result
+
+        result['data'] = j['content']
+        result['status'] = 1
+        result['msg'] = '成功点赞行程'
         return result
 
 
@@ -946,33 +1026,5 @@ if __name__ == "__main__":
     api = KD48API()
     res = api.login(account['id'], account['password'])
     token = res['token']
-
-    # liveList = api.getLiveList(token)
-    # print(liveList)
-
-    # msgs = api.getRoomMsgs(token, roomId=5780841, lastTime=0, limit=10)
-    # for m in reversed(msgs['data']):
-    #     import pdb
-    #     pdb.set_trace()
-    #     msg = api.analyzeMsg(m)
-    #     print(gbkIgnore(msg['printText']))
-
-    # res1 = api.getUserInfo(token, 398534)
-    # print(res1)
-    res = api.getHotRooms(token, page=1, groupId=0, needRootRoom=True)
-    hotRooms = res['roomList']
-    print(gbkIgnore(str(hotRooms)))
-
-    # memberId = 35
-    # res = api.getRoomInfo(token, memberId)
-    # roomInfo = res['data']
-
-    # roomId = roomInfo['roomId']
-    # res = api.getRoomMsgs(token, roomId)
-    # msgs = res['data']
-
-    # print(c(msgs))
-
-    # res = api.getOpenLiveList(token)
-    # liveList = res['liveList']
-    # reviewList = res['reviewList']
+    res = api.checkIn(token)
+    print(res)
