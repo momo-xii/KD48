@@ -7,9 +7,11 @@ import threading
 import json
 import random
 import logging
+from apscheduler.schedulers.background import BackgroundScheduler
+
+sys.path.append('./lib')
 import mylog
 mylog.setLog('KD48Monitor', logging.WARNING)
-
 loggerInfo = logging.getLogger('mylogger')
 loggerInfo.setLevel(logging.INFO)
 fh = logging.FileHandler('./log/info.log')
@@ -21,11 +23,9 @@ from utility import *
 from KD48API import KD48API
 from longQQMsg import LongQQMsg
 from MsgCounter import MsgCounter
-
 from cqsdk import CQBot, CQAt, CQRecord, RcvdPrivateMessage, RcvdGroupMessage, \
     GroupMemberIncrease, GroupMemberDecrease
 import utils
-from apscheduler.schedulers.background import BackgroundScheduler
 
 pid = os.getpid()
 qqbot = CQBot(11235)

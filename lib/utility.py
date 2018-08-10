@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 import json
 import re
+import hashlib
 
 def c(t):
     '''已废弃'''
@@ -162,3 +163,9 @@ def mid_to_url(midint):
         result.append(s)
     result.reverse()
     return ''.join(result)
+
+# 通过MD5的方式创建随机字符串
+def create_md5(string):
+    m = hashlib.md5()
+    m.update(string.encode('utf8'))
+    return m.hexdigest()

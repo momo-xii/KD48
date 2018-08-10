@@ -1,20 +1,20 @@
 # -*- coding:utf-8 -*-
 import os
+import sys
 import time
 from datetime import datetime, timedelta
-from utility import *
-
-from cqsdk import CQBot, CQAt, RcvdPrivateMessage, RcvdGroupMessage
-import utils
-
 import apscheduler.events as events
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.jobstores.memory import MemoryJobStore
 from apscheduler.executors.pool import ThreadPoolExecutor
 
-qqbot = CQBot(11235)
+sys.path.append('./lib')
+from utility import *
+from cqsdk import CQBot, CQAt, RcvdPrivateMessage, RcvdGroupMessage
+import utils
 
+qqbot = CQBot(11235)
 
 def SendPrivateMsgs(QQIds, t):
     if QQIds:
@@ -242,9 +242,7 @@ def scheduleHandler(msg):
                 return '''命令格式错误：缺少参数
 正确格式：设置日常任务 任务描述
 其中[任务描述]中的不同任务以空格或换行隔开'''
-            dailyTask = '日常任务：'
-            for task in cmdList[1:]:
-                dailyTask += '\n' + task
+            dailyTask = msg.lstrip('设置日常任务').strip()
             dailyJson['task'] = dailyTask
             saveJson(dailyJson, dailyTaskFN)
             result = "设置成功。输入[查看日常任务]显示任务"
@@ -275,7 +273,7 @@ def scheduleHandler(msg):
                 pass
 
             try:
-                scheduler.add_job(dailyAlert, 'cron', hour=cmdList[1], id='dailyAlert', 
+                scheduler.add_job(dailyAlert, 'cron', hour=cmdList[1], minute='30', id='dailyAlert', 
                     jobstore='dailyStore')
             except Exception as e:
                 return "时间格式错误"
@@ -287,6 +285,10 @@ def scheduleHandler(msg):
             except Exception as e:
                 pass
             result = "已关闭。若重新开启请【设置日常提醒时间】"
+
+        if cmd == "群发日常任务":
+            dailyAlert()
+            result = '已群发'
 
     except Exception as e:
         print(e)

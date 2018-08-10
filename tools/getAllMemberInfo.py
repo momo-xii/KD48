@@ -1,9 +1,11 @@
 # -*- coding:utf-8 -*-
 import os
+import sys
+sys.path.append('../lib')
 from KD48API import KD48API
 from utility import *
 
-account = loadJson('./config/account.json')
+account = loadJson('../config/account.json')
 
 api = KD48API()
 res = api.login(account['id'], account['password'])
@@ -13,7 +15,7 @@ allInfo = []
 page = 1
 while True:
     result = api.getHotRooms(token, page=page, groupId=0, needRootRoom=False)
-    print(page)
+    print('page:', page)
     hotRooms = result['data']
     if not hotRooms:
         break
@@ -24,17 +26,12 @@ while True:
         currInfo['memberId'] = roomInfo['memberId']
         currInfo['memberName'] = roomInfo['memberName']
         currInfo['roomId'] = roomInfo['roomId']
+        currInfo['voteMemberId'] = roomInfo['voteMemberId']
         allInfo.append(currInfo)
     page += 1
 
-allInfo.append({"memberId": 63,"groupId": 0,"memberName": "袋王","roomId": 5774517})
+allInfo.append({"memberId": 63,"groupId": 0,"memberName": "袋王","roomId": 5774517,"voteMemberId": 0})
 
-print(allInfo)
+# print(allInfo)
 print(len(allInfo))
-saveJson(allInfo, './data/MemberInfo.json')
-
-# 从alInfo中筛选
-# 筛选特定成员
-res = list(filter(lambda x:x['memberName'] == '莫寒', allInfo))
-# 筛选groupId为10的成员，即SNH48的成员
-res = list(filter(lambda x:x['groupId'] == 10, allInfo))
+saveJson(allInfo, '../data/MemberInfo.json')

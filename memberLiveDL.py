@@ -6,6 +6,7 @@ import re
 import threading
 import subprocess
 import urllib.request
+sys.path.append('./lib')
 from KD48API import KD48API
 from utility import *
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -24,7 +25,7 @@ videoDir = "D:/video/snh/live/"
 if not os.path.exists(videoDir):
     os.makedirs(videoDir)
 
-postProc = True
+postProc = False
 
 def report(count, blockSize, totalSize):
     percent = count*blockSize*100/totalSize

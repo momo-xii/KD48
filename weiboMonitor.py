@@ -8,15 +8,16 @@ import threading
 import random
 import urllib.request as request
 import logging
+from apscheduler.schedulers.background import BackgroundScheduler
+
+sys.path.append('./lib')
 import mylog
 mylog.setLog('weiboMonitor', logging.WARNING)
-
 from utility import *
 from cqsdk import CQBot, CQAt, RcvdPrivateMessage, RcvdGroupMessage, \
     GroupMemberIncrease, GroupMemberDecrease
 import utils
 from weiboAPI import Weibo
-from apscheduler.schedulers.background import BackgroundScheduler
 
 pid = os.getpid()
 qqbot = CQBot(11235)
